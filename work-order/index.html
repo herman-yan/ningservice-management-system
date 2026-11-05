@@ -2247,8 +2247,8 @@ async function initApp() {
     try {
       console.log('Loading default data from GitHub...');
       const [wnResp, nwResp] = await Promise.all([
-        fetch('https://herman-yan.github.io/doc-vault/work-order/data_wn.json'),
-        fetch('https://herman-yan.github.io/doc-vault/work-order/data_nw.json')
+        fetch('https://herman-yan.github.io/ningservice-management-system/work-order/data_wn.json'),
+        fetch('https://herman-yan.github.io/ningservice-management-system/work-order/data_nw.json')
       ]);
       
       if (wnResp.ok && nwResp.ok) {

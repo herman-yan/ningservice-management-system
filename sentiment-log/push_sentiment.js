@@ -11,7 +11,7 @@ const path = require('path');
 const SUPABASE_URL = 'https://bbiddukkkxthtairizlk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWRkdWtra3h0aHRhaXJpemxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzM4NjIsImV4cCI6MjA5ODk0OTg2Mn0.VBt4kQI-YXJKSw5TRWjH8uNXCljYxO6IW8ACi89wgXo';
 const TABLE = 'sentiment_log';
-const REPO = 'herman-yan/doc-vault';
+const REPO = 'herman-yan/ningservice-management-system';
 const JSON_PATH = 'sentiment-log/sentiment-data.json';
 const BRANCH = 'main';
 

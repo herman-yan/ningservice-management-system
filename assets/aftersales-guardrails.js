@@ -3,7 +3,7 @@
  * 供 work-order / warehouse 等页面共用：岗位可见范围、版本化状态机、三级质检、
  * 责任分离、操作留痕、导入去重合并。
  *
- * 定位说明：doc-vault 是静态站点，本层的身份识别与可见范围过滤是「岗位视图分区 + 留痕」，
+ * 定位说明：ningservice-management-system 是静态站点，本层的身份识别与可见范围过滤是「岗位视图分区 + 留痕」，
  * 不是安全边界。真正的访问控制需要统一后端（recruit/ 的 node server.js 是现成样板）。
  */
 (function (root) {
