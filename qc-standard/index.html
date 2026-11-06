@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A47">
+<meta name="description" content="动力电池维修质检规范库 · 7 大工序 37 项拍照点标准 · 宁家服务数字化运营系统">
+<title>质检规范库 · 宁家服务数字化运营系统</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.cn" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin>
+<link href="https://fonts.googleapis.cn/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   质检规范库 · 沿用主站设计系统（浅色 / 商务 / 克制配色）
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --brand:        #0E2A47;
+    --brand-2:      #15395B;
+    --brand-line:   #1E4A7A;
+
+    --c-blue:   #2563EB;
+    --c-teal:   #0D9488;
+    --c-indigo: #5B5BD6;
+    --c-green:  #15803D;
+    --c-amber:  #D97706;
+
+    --st-online:   #15803D;
+    --st-building: #B45309;
+
+    --bg:      #F4F6FB;
+    --bg-soft: #EEF2F8;
+    --card:    #FFFFFF;
+    --border:  #E5E9F1;
+    --border-2:#DCE2EC;
+    --text:    #1F2A3A;
+    --text-2:  #5B6B82;
+    --text-3:  #93A1B5;
+
+    --shadow-sm: 0 1px 2px rgba(16,32,64,.05);
+    --shadow:    0 1px 3px rgba(16,32,64,.06), 0 10px 28px rgba(16,32,64,.06);
+    --shadow-lg: 0 4px 12px rgba(16,32,64,.08), 0 18px 42px rgba(16,32,64,.10);
+
+    --radius: 16px;
+    --radius-sm: 11px;
+
+    --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont,
+                 "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg);
+    background-image: radial-gradient(rgba(16,42,71,.035) 1px, transparent 1px);
+    background-size: 22px 22px;
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+svg { display: block; }
+button { font: inherit; cursor: pointer; }
+
+/* ===================== 顶部品牌栏 ===================== */
+.topbar {
+    background: linear-gradient(120deg, rgba(14,42,71,.97) 0%, rgba(21,57,91,.97) 100%);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    color: #fff;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 6px 22px rgba(14,42,71,.18);
+}
+.topbar-inner {
+    max-width: 1280px; margin: 0 auto; padding: 0 28px;
+    height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 20px;
+}
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.brand-chip {
+    background: #fff; border-radius: 10px; padding: 7px 15px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,.16), 0 3px 10px rgba(14,42,71,.28);
+    flex-shrink: 0; line-height: 0;
+}
+.brand-logo { height: 34px; width: auto; display: block; object-fit: contain; }
+.brand-divider { width: 1px; height: 28px; background: rgba(255,255,255,.20); flex-shrink: 0; }
+.brand-text { min-width: 0; }
+.brand-name { font-size: 16.5px; font-weight: 600; letter-spacing: .4px; white-space: nowrap; }
+.brand-sub { font-size: 11.5px; color: rgba(255,255,255,.62); white-space: nowrap; margin-top: 1px; }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.back-link {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; color: rgba(255,255,255,.82);
+    padding: 7px 14px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.05);
+    transition: background .2s ease, border-color .2s ease;
+    white-space: nowrap;
+}
+.back-link:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.30); }
+.back-link svg { width: 14px; height: 14px; }
+
+/* ===================== 主体 ===================== */
+.container { max-width: 1280px; margin: 0 auto; padding: 30px 28px 0; }
+
+/* ===================== Hero ===================== */
+.hero {
+    position: relative; border-radius: 20px;
+    background: linear-gradient(125deg, #0E2A47 0%, #15395B 46%, #1B4C7E 100%);
+    color: #fff; padding: 32px 34px; margin-bottom: 30px;
+    overflow: hidden; box-shadow: 0 16px 44px rgba(14,42,71,.22);
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 28px; flex-wrap: wrap;
+}
+.hero::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px);
+    background-size: 20px 20px;
+    -webkit-mask-image: linear-gradient(120deg, #000 0%, transparent 72%);
+    mask-image: linear-gradient(120deg, #000 0%, transparent 72%);
+    pointer-events: none;
+}
+.hero::after {
+    content: ""; position: absolute; right: -90px; top: -120px;
+    width: 340px; height: 340px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(56,150,255,.36) 0%, rgba(56,150,255,0) 68%);
+    pointer-events: none;
+}
+.hero-main { position: relative; z-index: 1; min-width: 260px; flex: 1; }
+.page-kicker {
+    font-size: 11.5px; font-weight: 600; letter-spacing: 2px;
+    color: #7FB2F0; text-transform: uppercase; margin-bottom: 8px;
+}
+.page-title { font-size: clamp(21px, 3.2vw, 27px); font-weight: 700; letter-spacing: .6px; line-height: 1.3; }
+.hero-sub { font-size: 13px; color: rgba(255,255,255,.62); margin-top: 9px; line-height: 1.6; }
+.hero-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+.page-date {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 600; color: #fff;
+    font-variant-numeric: tabular-nums;
+    padding: 6px 13px; border-radius: 999px;
+    background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.14);
+}
+.page-tip { font-size: 11.5px; color: rgba(255,255,255,.45); }
+
+.hero-search { position: relative; z-index: 1; width: 320px; flex-shrink: 0; }
+.hero-search svg {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 17px; height: 17px; color: rgba(255,255,255,.55); pointer-events: none;
+}
+.hero-search input {
+    width: 100%; height: 44px; padding: 0 14px 0 42px;
+    border-radius: 12px; border: 1px solid rgba(255,255,255,.18);
+    background: rgba(255,255,255,.10); color: #fff;
+    font-size: 13.5px; font-family: inherit; outline: none;
+    transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.hero-search input::placeholder { color: rgba(255,255,255,.5); }
+.hero-search input:focus {
+    background: rgba(255,255,255,.17); border-color: rgba(255,255,255,.42);
+    box-shadow: 0 0 0 3px rgba(255,255,255,.10);
+}
+
+/* ===================== KPI ===================== */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 36px; }
+.kpi {
+    background: #fff;
+    background-image: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0) 100%);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px 22px; box-shadow: var(--shadow-sm);
+    position: relative; overflow: hidden;
+    transition: box-shadow .28s ease, transform .28s var(--ease), border-color .28s ease;
+}
+.kpi::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--c, var(--c-blue)) 0%, color-mix(in srgb, var(--c, var(--c-blue)) 30%, #fff) 100%);
+}
+.kpi::after {
+    content: ""; position: absolute; right: -34px; top: -34px;
+    width: 118px; height: 118px; border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--c, var(--c-blue)) 15%, transparent) 0%, transparent 70%);
+    pointer-events: none;
+}
+.kpi:hover {
+    box-shadow: var(--shadow); transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--c, var(--c-blue)) 28%, var(--border));
+}
+.kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; position: relative; z-index: 1; }
+.kpi-ico {
+    width: 42px; height: 42px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--c) 12%, #fff); color: var(--c);
+}
+.kpi-ico svg { width: 22px; height: 22px; }
+.kpi-tag {
+    font-size: 11px; font-weight: 600; color: var(--c);
+    background: color-mix(in srgb, var(--c) 10%, #fff);
+    padding: 3px 9px; border-radius: 999px;
+}
+.kpi-label { font-size: 13px; color: var(--text-2); position: relative; z-index: 1; }
+.kpi-value {
+    font-size: 32px; font-weight: 700; color: var(--text);
+    line-height: 1.1; margin: 4px 0 12px;
+    font-variant-numeric: tabular-nums; letter-spacing: -.5px;
+    position: relative; z-index: 1;
+}
+.kpi-value small { font-size: 15px; font-weight: 600; color: var(--text-3); margin-left: 3px; }
+.kpi-foot {
+    display: flex; gap: 14px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-3);
+    position: relative; z-index: 1;
+}
+.kpi-foot b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ===================== 区块标题 ===================== */
+.section-label {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; color: var(--text-2);
+    letter-spacing: .5px; margin: 0 0 16px;
+}
+.section-label::before {
+    content: ""; width: 3px; height: 14px; border-radius: 2px; background: var(--c-blue);
+}
+.section-label .sec-note {
+    margin-left: auto; font-size: 12px; font-weight: 400; color: var(--text-3);
+}
+
+/* ===================== 质检流程 ===================== */
+.flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-bottom: 38px; }
+.flow-step {
+    background: var(--card); border: 1px solid var(--border);
+    padding: 22px 20px 20px; position: relative;
+    transition: box-shadow .28s ease, transform .28s var(--ease), border-color .28s ease;
+}
+.flow-step:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.flow-step:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.flow-step + .flow-step { border-left: none; }
+.flow-step:hover {
+    box-shadow: var(--shadow); transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--c-blue) 30%, var(--border));
+    z-index: 2;
+}
+.flow-step::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+    background: linear-gradient(90deg, var(--c-blue) 0%, color-mix(in srgb, var(--c-blue) 45%, #fff) 100%);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform .32s var(--ease);
+}
+.flow-step:hover::after { transform: scaleX(1); }
+.flow-idx {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--c-blue);
+    background: color-mix(in srgb, var(--c-blue) 11%, #fff);
+    margin-bottom: 12px;
+}
+.flow-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.flow-desc { font-size: 12px; color: var(--text-2); line-height: 1.6; margin-top: 5px; }
+.flow-arrow {
+    position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border-radius: 50%; z-index: 3;
+    background: #fff; border: 1px solid var(--border-2);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-3); font-size: 10px;
+}
+.flow-step:last-child .flow-arrow { display: none; }
+
+/* ===================== 工具条（R1/R2 切换 + 计数） ===================== */
+.toolbar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+.seg {
+    display: inline-flex; background: var(--bg-soft);
+    border: 1px solid var(--border); border-radius: 11px; padding: 3px; gap: 3px;
+}
+.seg button {
+    border: none; background: transparent; color: var(--text-2);
+    font-size: 12.5px; font-weight: 600; padding: 7px 16px; border-radius: 8px;
+    transition: background .22s ease, color .22s ease, box-shadow .22s ease;
+    white-space: nowrap;
+}
+.seg button.on {
+    background: #fff; color: var(--c-blue);
+    box-shadow: 0 1px 3px rgba(16,32,64,.10);
+}
+.seg button:hover:not(.on) { color: var(--text); }
+.toolbar-count { font-size: 12.5px; color: var(--text-3); }
+.toolbar-count b { color: var(--c-blue); font-weight: 700; font-variant-numeric: tabular-nums; }
+.toolbar-spacer { margin-left: auto; }
+.btn-ghost {
+    border: 1px solid var(--border-2); background: #fff; color: var(--text-2);
+    font-size: 12.5px; font-weight: 600; padding: 8px 15px; border-radius: 10px;
+    transition: border-color .2s ease, color .2s ease, background .2s ease;
+    white-space: nowrap;
+}
+.btn-ghost:hover { border-color: var(--c-blue); color: var(--c-blue); background: color-mix(in srgb, var(--c-blue) 5%, #fff); }
+
+/* ===================== 规范库 · 工序分组 ===================== */
+.proc { margin-bottom: 18px; border-radius: var(--radius); }
+.proc-head {
+    display: flex; align-items: center; gap: 13px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 15px 20px;
+    cursor: pointer; box-shadow: var(--shadow-sm);
+    transition: border-color .22s ease, box-shadow .22s ease;
+    user-select: none;
+}
+.proc-head:hover { border-color: color-mix(in srgb, var(--c-blue) 34%, var(--border)); box-shadow: var(--shadow); }
+.proc-seq {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff;
+    background: linear-gradient(150deg, var(--brand-2) 0%, var(--brand) 100%);
+    font-variant-numeric: tabular-nums;
+}
+.proc-names { min-width: 0; flex: 1; }
+.proc-title { font-size: 15px; font-weight: 700; color: var(--brand); letter-spacing: .3px; }
+.proc-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.proc-num {
+    display: flex; gap: 7px; flex-shrink: 0; align-items: center;
+}
+.chip {
+    font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: var(--bg-soft); border: 1px solid var(--border); color: var(--text-2);
+    white-space: nowrap;
+}
+.chip-r1 { color: #0D9488; background: rgba(13,148,136,.09); border-color: rgba(13,148,136,.20); }
+.chip-r2 { color: #5B5BD6; background: rgba(91,91,214,.09); border-color: rgba(91,91,214,.20); }
+.caret {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-3); border: 1px solid var(--border-2);
+    transition: transform .28s var(--ease), background .22s ease, color .22s ease;
+}
+.caret svg { width: 13px; height: 13px; }
+.proc.open .caret { transform: rotate(180deg); background: var(--c-blue); border-color: var(--c-blue); color: #fff; }
+
+.proc-body {
+    display: grid; grid-template-rows: 0fr;
+    transition: grid-template-rows .34s var(--ease);
+}
+.proc.open .proc-body { grid-template-rows: 1fr; }
+.proc-body > .proc-inner { overflow: hidden; }
+.proc-list {
+    padding: 16px 6px 4px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+
+/* 拍照项卡片 */
+.item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px 16px;
+    display: flex; gap: 13px;
+    transition: border-color .22s ease, box-shadow .22s ease, transform .22s var(--ease);
+}
+.item:hover {
+    border-color: color-mix(in srgb, var(--c-blue) 30%, var(--border));
+    box-shadow: var(--shadow-sm); transform: translateY(-2px);
+}
+.item-idx {
+    width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 700; color: var(--text-3);
+    background: var(--bg-soft); font-variant-numeric: tabular-nums;
+}
+.item-main { flex: 1; min-width: 0; }
+.item-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.item-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.tag {
+    font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+    white-space: nowrap;
+}
+.tag-req { color: #B45309; background: rgba(180,83,9,.10); }
+.tag-video { color: #5B5BD6; background: rgba(91,91,214,.10); }
+.tag-number { color: #0D9488; background: rgba(13,148,136,.10); }
+.tag-cond { color: #6B7280; background: rgba(107,114,128,.10); }
+.item-rule {
+    font-size: 12.5px; color: var(--text-2); line-height: 1.6; margin-top: 6px;
+}
+.item-note {
+    font-size: 11.5px; color: var(--text-3); margin-top: 5px;
+    padding-left: 9px; border-left: 2px solid var(--border-2);
+}
+.item-count {
+    display: flex; align-items: center; gap: 6px; margin-top: 9px;
+    font-size: 11.5px; color: var(--text-3);
+}
+.count-badge {
+    font-weight: 700; color: var(--c-blue);
+    background: color-mix(in srgb, var(--c-blue) 9%, #fff);
+    border: 1px solid color-mix(in srgb, var(--c-blue) 20%, #fff);
+    padding: 2px 9px; border-radius: 7px;
+    font-variant-numeric: tabular-nums;
+}
+.count-badge.zero { color: var(--text-3); background: var(--bg-soft); border-color: var(--border); }
+
+/* 空态 */
+.empty-hint {
+    display: none; text-align: center; padding: 46px 20px;
+    color: var(--text-3); font-size: 13.5px;
+    background: var(--card); border: 1px dashed var(--border-2);
+    border-radius: var(--radius);
+}
+.empty-hint.show { display: block; }
+
+/* ===================== AI 初筛 ===================== */
+.ai-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 38px; }
+.ai-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 22px;
+    box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+    transition: box-shadow .28s ease, transform .28s var(--ease), border-color .28s ease;
+}
+.ai-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--c) 0%, color-mix(in srgb, var(--c) 30%, #fff) 100%);
+}
+.ai-card:hover {
+    box-shadow: var(--shadow); transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--c) 30%, var(--border));
+}
+.ai-tier {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--c); margin-bottom: 8px;
+}
+.ai-title { font-size: 15.5px; font-weight: 700; color: var(--text); }
+.ai-desc { font-size: 12.5px; color: var(--text-2); line-height: 1.65; margin-top: 8px; }
+.ai-list { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.ai-list div {
+    font-size: 12px; color: var(--text-2); line-height: 1.7;
+    padding-left: 14px; position: relative;
+}
+.ai-list div::before {
+    content: ""; position: absolute; left: 3px; top: 9px;
+    width: 4px; height: 4px; border-radius: 50%; background: var(--c);
+}
+
+/* 结论三档 */
+.verdict { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 38px; }
+.vd {
+    flex: 1; min-width: 180px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 16px 18px;
+    display: flex; align-items: center; gap: 12px;
+}
+.vd-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.vd-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.vd-sub { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+
+/* ===================== 小程序入口 ===================== */
+.entry {
+    background: linear-gradient(125deg, #0E2A47 0%, #15395B 60%, #1B4C7E 100%);
+    border-radius: 20px; padding: 32px 34px; color: #fff;
+    display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+    box-shadow: 0 16px 44px rgba(14,42,71,.20);
+    position: relative; overflow: hidden; margin-bottom: 8px;
+}
+.entry::after {
+    content: ""; position: absolute; right: -80px; bottom: -120px;
+    width: 320px; height: 320px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(56,150,255,.30) 0%, rgba(56,150,255,0) 68%);
+    pointer-events: none;
+}
+.entry-main { position: relative; z-index: 1; flex: 1; min-width: 260px; }
+.entry-kicker {
+    font-size: 11px; font-weight: 600; letter-spacing: 2px;
+    color: #7FB2F0; text-transform: uppercase; margin-bottom: 8px;
+}
+.entry-title { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+.entry-desc { font-size: 13px; color: rgba(255,255,255,.66); line-height: 1.7; margin-top: 9px; }
+.entry-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.entry-tag {
+    font-size: 11.5px; padding: 5px 12px; border-radius: 999px;
+    background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.15);
+    color: rgba(255,255,255,.85);
+}
+.entry-qr {
+    position: relative; z-index: 1; flex-shrink: 0; text-align: center;
+}
+.qr-box {
+    width: 168px; height: 168px; border-radius: 16px;
+    background: rgba(255,255,255,.94);
+    border: 1px dashed rgba(255,255,255,.45);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; color: #5B6B82;
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+}
+.qr-box svg { width: 40px; height: 40px; color: #93A1B5; }
+.qr-ph-t { font-size: 12.5px; font-weight: 600; color: #5B6B82; }
+.qr-ph-s { font-size: 10.5px; color: #93A1B5; line-height: 1.5; padding: 0 12px; }
+.qr-cap { font-size: 11.5px; color: rgba(255,255,255,.6); margin-top: 11px; }
+
+/* ===================== 页脚 ===================== */
+.footer { margin-top: 44px; border-top: 1px solid var(--border); background: rgba(255,255,255,.6); }
+.footer-inner {
+    max-width: 1280px; margin: 0 auto; padding: 24px 28px 30px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-3);
+}
+.footer-inner strong { color: var(--text-2); font-weight: 600; }
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 1080px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .proc-list { grid-template-columns: 1fr; }
+    .ai-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+    .topbar-inner { padding: 0 18px; height: 60px; }
+    .brand-sub { display: none; }
+    .brand-logo { height: 28px; }
+    .back-link span { display: none; }
+    .back-link { padding: 8px 11px; }
+    .container { padding: 20px 18px 0; }
+    .hero { padding: 24px 22px; }
+    .hero-search { width: 100%; }
+    .flow { grid-template-columns: 1fr; gap: 10px; }
+    .flow-step, .flow-step:first-child, .flow-step:last-child { border-radius: var(--radius); border-left: 1px solid var(--border); }
+    .flow-arrow { display: none; }
+    .entry { padding: 24px 22px; gap: 24px; }
+    .entry-qr { width: 100%; display: flex; justify-content: center; }
+    .footer-inner { padding: 20px 18px 26px; flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 560px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .page-title { font-size: 20px; }
+    .toolbar-spacer { display: none; }
+    .btn-ghost { width: 100%; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== 顶部品牌栏 ===================== -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <div class="brand-chip"><img class="brand-logo" src="../assets/logo.png" alt="宁家服务"></div>
+            <div class="brand-divider"></div>
+            <div class="brand-text">
+                <div class="brand-name">质检规范库</div>
+                <div class="brand-sub">动力电池维修拍照标准 · 数字化运营系统</div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <a class="back-link" href="../index.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                <span>返回总览</span>
+            </a>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- ===================== Hero ===================== -->
+    <section class="hero">
+        <div class="hero-main">
+            <div class="page-kicker">QC Standard Library</div>
+            <h1 class="page-title">质检规范库 · 拍照标准与作业流程</h1>
+            <p class="hero-sub">动力电池维修全流程拍照标准统一入口 —— 7 大工序 37 项拍照点、R1 / R2 张数要求、AI 辅助初筛规则</p>
+            <div class="hero-meta">
+                <span class="page-date">7 大工序 · 37 项拍照点</span>
+                <span class="page-tip">标准来源：《返修拍摄要求》 · 规范统一后方可提交质检</span>
+            </div>
+        </div>
+        <div class="hero-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="q" type="search" placeholder="搜索拍照项 / 拍摄要求，如：里程、气密、铺胶" autocomplete="off">
+        </div>
+    </section>
+
+    <!-- ===================== KPI ===================== -->
+    <section class="kpi-grid">
+        <article class="kpi" style="--c:var(--c-blue)">
+            <div class="kpi-top">
+                <div class="kpi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+                <span class="kpi-tag">流程</span>
+            </div>
+            <div class="kpi-label">作业工序</div>
+            <div class="kpi-value">7<small>大工序</small></div>
+            <div class="kpi-foot"><span>入厂 → 交付 <b>全流程覆盖</b></span></div>
+        </article>
+        <article class="kpi" style="--c:var(--c-teal)">
+            <div class="kpi-top">
+                <div class="kpi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="3.4"/></svg></div>
+                <span class="kpi-tag">标准</span>
+            </div>
+            <div class="kpi-label">拍照点</div>
+            <div class="kpi-value">37<small>项</small></div>
+            <div class="kpi-foot"><span>全部 <b>带拍摄规范</b></span></div>
+        </article>
+        <article class="kpi" style="--c:var(--c-indigo)">
+            <div class="kpi-top">
+                <div class="kpi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg></div>
+                <span class="kpi-tag">R1</span>
+            </div>
+            <div class="kpi-label">简易维修要求张数</div>
+            <div class="kpi-value">46<small>张</small></div>
+            <div class="kpi-foot"><span>基础拍照项 <b>全部为必拍</b></span></div>
+        </article>
+        <article class="kpi" style="--c:var(--c-green)">
+            <div class="kpi-top">
+                <div class="kpi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg></div>
+                <span class="kpi-tag">R2</span>
+            </div>
+            <div class="kpi-label">复杂维修要求张数</div>
+            <div class="kpi-value">73<small>张</small></div>
+            <div class="kpi-foot"><span>回装环节 <b>要求显著提高</b></span></div>
+        </article>
+    </section>
+
+    <!-- ===================== 质检流程 ===================== -->
+    <div class="section-label">质检作业流程<span class="sec-note">小程序内四步闭环</span></div>
+    <section class="flow">
+        <div class="flow-step">
+            <div class="flow-idx">1</div>
+            <div class="flow-title">建单</div>
+            <div class="flow-desc">录入工单号、车辆与电池信息，选择维修等级（R1 简易 / R2 复杂）与业务类型</div>
+            <div class="flow-arrow">›</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-idx">2</div>
+            <div class="flow-title">拍照</div>
+            <div class="flow-desc">按 7 大工序逐项拍摄，页面实时提示每项拍摄规范与所需张数，缺张无法提交</div>
+            <div class="flow-arrow">›</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-idx">3</div>
+            <div class="flow-title">质检</div>
+            <div class="flow-desc">逐张对照标准示例，判定合格 / 重拍；可先跑 AI 辅助初筛，再由人工最终裁定</div>
+            <div class="flow-arrow">›</div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-idx">4</div>
+            <div class="flow-title">报单</div>
+            <div class="flow-desc">按工单打包归档，生成报单资料，必要时归档至企业微信微盘</div>
+            <div class="flow-arrow">›</div>
+        </div>
+    </section>
+
+    <!-- ===================== 规范库 ===================== -->
+    <div class="section-label">拍照规范库<span class="sec-note">点击工序展开 · 按维修等级查看张数</span></div>
+
+    <div class="toolbar">
+        <div class="seg" id="segLevel">
+            <button data-level="r1" class="on">R1 · 简易维修</button>
+            <button data-level="r2">R2 · 复杂维修</button>
+        </div>
+        <span class="toolbar-count" id="countTip">共 <b>7</b> 道工序 · <b>37</b> 项拍照点 · 要求 <b>46</b> 张</span>
+        <span class="toolbar-spacer"></span>
+        <button class="btn-ghost" id="btnExpand">全部展开</button>
+    </div>
+
+    <div id="procWrap"></div>
+    <div class="empty-hint" id="emptyHint">没有找到匹配的拍照项，换个关键词试试（如：里程 / 气密 / 铺胶 / 铭牌）</div>
+
+    <!-- ===================== AI 初筛 ===================== -->
+    <div class="section-label" style="margin-top:38px">AI 辅助初筛<span class="sec-note">仅作初筛建议，合格 / 重拍最终由人工裁定</span></div>
+    <section class="ai-grid">
+        <article class="ai-card" style="--c:var(--c-blue)">
+            <div class="ai-tier">Tier 1</div>
+            <div class="ai-title">基础合规校验</div>
+            <div class="ai-desc">不依赖大模型，先做确定性的规则检查，速度快、结果稳定。</div>
+            <div class="ai-list">
+                <div>张数是否达到该项要求</div>
+                <div>文件是否为有效图片 / 视频</div>
+                <div>分辨率与清晰度下限</div>
+                <div>是否重复上传同一张</div>
+            </div>
+        </article>
+        <article class="ai-card" style="--c:var(--c-teal)">
+            <div class="ai-tier">Tier 2</div>
+            <div class="ai-title">OCR 文字识别</div>
+            <div class="ai-desc">针对带读数的照片，识别关键数字与文字，核对是否符合拍摄要求。</div>
+            <div class="ai-list">
+                <div>ODO 总里程读数识别</div>
+                <div>电池号 / 铭牌 VIN 识别</div>
+                <div>气密界面 PASS 判定识别</div>
+                <div>扭力扳手读数识别</div>
+            </div>
+        </article>
+        <article class="ai-card" style="--c:var(--c-indigo)">
+            <div class="ai-tier">Tier 3</div>
+            <div class="ai-title">内容理解</div>
+            <div class="ai-desc">由视觉大模型对照该项「拍摄规范」判断画面是否拍对，输出理由与建议。</div>
+            <div class="ai-list">
+                <div>是否拍到了规范要求的主体</div>
+                <div>是否误拍（如拍成小计里程）</div>
+                <div>画面是否被遮挡、模糊、过曝</div>
+                <div>返回结构化结论与理由</div>
+            </div>
+        </article>
+    </section>
+
+    <div class="verdict">
+        <div class="vd">
+            <span class="vd-dot" style="background:#15803D"></span>
+            <div><div class="vd-name">AI 合格</div><div class="vd-sub">三档全通过，可直接采纳</div></div>
+        </div>
+        <div class="vd">
+            <span class="vd-dot" style="background:#D97706"></span>
+            <div><div class="vd-name">AI 存疑</div><div class="vd-sub">建议人工复核后再裁定</div></div>
+        </div>
+        <div class="vd">
+            <span class="vd-dot" style="background:#DC2626"></span>
+            <div><div class="vd-name">AI 需重拍</div><div class="vd-sub">明确不合规，建议重新拍摄</div></div>
+        </div>
+    </div>
+
+    <!-- ===================== 小程序入口 ===================== -->
+    <div class="section-label">小程序入口<span class="sec-note">现场作业请使用微信小程序</span></div>
+    <section class="entry">
+        <div class="entry-main">
+            <div class="entry-kicker">Mini Program</div>
+            <div class="entry-title">宁家维修拍照资料库</div>
+            <p class="entry-desc">现场技师通过微信小程序完成建单、拍照、质检与报单。本页为标准查询入口，实际拍摄与判定请在小程序内操作。</p>
+            <div class="entry-tags">
+                <span class="entry-tag">建单</span>
+                <span class="entry-tag">拍照</span>
+                <span class="entry-tag">草稿箱</span>
+                <span class="entry-tag">质检</span>
+                <span class="entry-tag">报单</span>
+                <span class="entry-tag">企微微盘归档</span>
+            </div>
+        </div>
+        <div class="entry-qr">
+            <div class="qr-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3z"/><path d="M20 14v3M17 20h4M14 20h1"/></svg>
+                <div class="qr-ph-t">小程序码待替换</div>
+                <div class="qr-ph-s">请从微信公众平台下载太阳码后替换此处</div>
+            </div>
+            <div class="qr-cap">微信扫码进入小程序</div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div>© 2026 <strong>宁家服务数字化运营系统</strong> · 质检规范库 · 动力电池维修拍照标准</div>
+        <div>规范来源：《返修拍摄要求》 · 系统如有疑问，请联系 闫贺</div>
+    </div>
+</footer>
+
+<script>
+/* ============================================================
+   质检规范数据（来自小程序 utils/config.js，字段结构一致）
+   ============================================================ */
+var PROCESSES = [
+  { id:'preprocess', seq:'一', name:'入厂与预处理', items:[
+    { id:'forklift', name:'叉车装卸照', rule:'每次装卸必拍，体现电池与叉车相对位置', required:true, r1Num:1, r2Num:1, note:'依货拉拉次数而定（条件必填）' },
+    { id:'battery_no', name:'电池号', rule:'完整清晰可识别，用于查总成 PN；无号无法查 PN', required:true, r1Num:1, r2Num:1 },
+    { id:'panorama', name:'360° 全景视频', rule:'入场整体状态记录', required:true, r1Num:1, r2Num:1, type:'video' },
+    { id:'clean_before', name:'清洁前照', rule:'展示维修前脏污 / 旧状态', required:true, r1Num:1, r2Num:1 },
+    { id:'clean_after', name:'清洁后照', rule:'展示清洁到位、无杂物', required:true, r1Num:1, r2Num:1 }
+  ]},
+  { id:'precheck', seq:'二', name:'维修前预检与诊断', items:[
+    { id:'plate', name:'车牌', rule:'正对车头拍摄，含完整车牌', required:true, r1Num:1, r2Num:1 },
+    { id:'person_car', name:'人车合影', rule:'维修人员与车辆同框', required:true, r1Num:1, r2Num:1 },
+    { id:'odo', name:'里程（ODO 总里程）', rule:'必须拍仪表 ODO 总里程，禁止拍小计里程', required:true, r1Num:1, r2Num:1 },
+    { id:'vin', name:'铭牌 / VIN', rule:'完整清晰，含车辆铭牌信息', required:true, r1Num:1, r2Num:1 },
+    { id:'battery_no_pre', name:'电池号（预检）', rule:'与来料一致', required:true, r1Num:2, r2Num:2 },
+    { id:'upper_machine', name:'维修前上位机', rule:'详单 / 柱 / 温 / 版 / UDS / DTC 共 5 张', required:true, r1Num:5, r2Num:5 },
+    { id:'sky_body', name:'天体图', rule:'电池天体整体状态', required:true, r1Num:2, r2Num:2 },
+    { id:'local', name:'局部照', rule:'故障局部特写', required:true, r1Num:2, r2Num:2 },
+    { id:'damage', name:'受损照', rule:'故障 / 受损部位', required:true, r1Num:3, r2Num:3 },
+    { id:'airtight', name:'气密（连接照 + PASS）', rule:'需含连接照 + 界面无遮挡显示 PASS 合格照', required:true, r1Num:2, r2Num:2 }
+  ]},
+  { id:'disassembly', seq:'三', name:'拆解', items:[
+    { id:'dis_before', name:'拆解前整体', rule:'拆解前整体状态', required:true, r1Num:1, r2Num:1 },
+    { id:'dis_proc', name:'拆解过程', rule:'关键拆解步骤记录', required:true, r1Num:1, r2Num:2 },
+    { id:'old_part', name:'旧件取下', rule:'旧件取下状态（含件号）', required:true, r1Num:1, r2Num:1 }
+  ]},
+  { id:'repair', seq:'四', name:'维修施工（铺胶）', items:[
+    { id:'glue_before', name:'铺胶前', rule:'铺胶前表面处理状态', required:true, r1Num:1, r2Num:1 },
+    { id:'glue_doing', name:'铺胶中', rule:'铺胶施工过程', required:true, r1Num:1, r2Num:1 },
+    { id:'glue_after', name:'铺胶后', rule:'铺胶完成、均匀无气泡', required:true, r1Num:1, r2Num:1 }
+  ]},
+  { id:'reassembly', seq:'五', name:'回装', items:[
+    { id:'underguard', name:'底护板照', rule:'底护板回装到位', required:true, r1Num:1, r2Num:6 },
+    { id:'sky_body_r', name:'天体照', rule:'回装后天体整体', required:true, r1Num:1, r2Num:6 },
+    { id:'torque', name:'扭力扳手读数', rule:'扭力扳手读数清晰可辨', required:true, r1Num:1, r2Num:6 },
+    { id:'paint_pen', name:'漆笔（完整清晰）', rule:'漆笔标记完整清晰', required:true, r1Num:1, r2Num:6 },
+    { id:'high_voltage', name:'高压件（仅 R2）', rule:'高压件回装，仅 R2 复杂维修需要', required:true, r1Num:0, r2Num:6 }
+  ]},
+  { id:'finalcheck', seq:'六', name:'终检与充放电验证', items:[
+    { id:'final_overall', name:'终检整体', rule:'终检整体外观', required:true, r1Num:1, r2Num:1 },
+    { id:'final_func', name:'功能测试', rule:'功能测试结果记录', required:true, r1Num:1, r2Num:1 },
+    { id:'charge_fence', name:'充放电（必带围栏）', rule:'充放电区域必须带隔离围栏', required:true, r1Num:1, r2Num:1 },
+    { id:'charge_ui', name:'充放电界面', rule:'充放电设备界面状态', required:true, r1Num:1, r2Num:1 }
+  ]},
+  { id:'delivery', seq:'七', name:'佐证与交付', items:[
+    { id:'connector', name:'接插件', rule:'接插件连接状态', required:true, r1Num:1, r2Num:1 },
+    { id:'outdoor', name:'外出照', rule:'外出作业场景', required:true, r1Num:1, r2Num:1 },
+    { id:'isolation', name:'隔离区', rule:'隔离区需有围栏', required:true, r1Num:1, r2Num:1 },
+    { id:'seal_box', name:'封箱照', rule:'封箱完成状态', required:true, r1Num:1, r2Num:1 },
+    { id:'entry_photo', name:'进场照', rule:'进厂标准照（特殊场景下仍可拍）', required:true, r1Num:1, r2Num:1, allowInWorking:true },
+    { id:'exit_photo', name:'出场照', rule:'出厂标准照（特殊场景下仍可拍）', required:true, r1Num:1, r2Num:1, allowInWorking:true },
+    { id:'deliver_confirm', name:'交付确认', rule:'客户 / 内部交付确认', required:true, r1Num:1, r2Num:1 }
+  ]}
+];
+
+/* 非售后（主机厂）业务额外工序 */
+var NON_AFTER = { id:'non_after', seq:'附', name:'非售后（主机厂）业务', items:[
+    { id:'entry_selfie', name:'进场自拍', rule:'非售后业务必拍进场照', required:true, r1Num:1, r2Num:1 },
+    { id:'exit_selfie', name:'出场自拍', rule:'非售后业务必拍出场照', required:true, r1Num:1, r2Num:1 },
+    { id:'work_duration', name:'工作时长记录', rule:'记录本次维修工作时长（分钟）', required:true, r1Num:1, r2Num:1, type:'number', note:'需填写时长' }
+]};
+
+/* ============================================================
+   状态与工具
+   ============================================================ */
+var LEVEL = 'r1';
+var KEYWORD = '';
+var OPEN = {};                 // 工序展开状态
+var ALL_PROCS = PROCESSES.concat([NON_AFTER]);
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function numOf(it, level) { return level === 'r2' ? it.r2Num : it.r1Num; }
+function sumProc(p, level) { return p.items.reduce(function (a, it) { return a + numOf(it, level); }, 0); }
+
+/* 搜索命中：名称 / 规范 / 备注 / 工序名 */
+function hit(p, it) {
+  if (!KEYWORD) return true;
+  var hay = (p.name + ' ' + p.seq + ' ' + it.name + ' ' + it.rule + ' ' + (it.note || '')).toLowerCase();
+  return hay.indexOf(KEYWORD) !== -1;
+}
+
+/* ============================================================
+   渲染
+   ============================================================ */
+function typeTag(it) {
+  if (it.type === 'video') return '<span class="tag tag-video">视频</span>';
+  if (it.type === 'number') return '<span class="tag tag-number">填写数值</span>';
+  return '';
+}
+function renderItem(it, idx, level) {
+  var n = numOf(it, level);
+  var tags = '';
+  if (it.required) tags += '<span class="tag tag-req">必拍</span>';
+  tags += typeTag(it);
+  if (it.note) tags += '<span class="tag tag-cond">条件必填</span>';
+
+  var countHtml;
+  if (it.type === 'number') {
+    countHtml = n > 0
+      ? '<span class="count-badge">需填写</span><span>本次维修需记录时长</span>'
+      : '<span class="count-badge zero">不需填写</span><span>本次维修无需记录</span>';
+  } else {
+    countHtml = n > 0
+      ? '<span class="count-badge">' + n + ' 张</span><span>' + (level === 'r2' ? 'R2 复杂维修' : 'R1 简易维修') + '要求张数</span>'
+      : '<span class="count-badge zero">0 张</span><span>本等级不要求拍摄</span>';
+  }
+
+  return '<div class="item">'
+    + '<div class="item-idx">' + idx + '</div>'
+    + '<div class="item-main">'
+    +   '<div class="item-head"><span class="item-name">' + esc(it.name) + '</span>' + tags + '</div>'
+    +   '<div class="item-rule">' + esc(it.rule) + '</div>'
+    +   (it.note ? '<div class="item-note">' + esc(it.note) + '</div>' : '')
+    +   '<div class="item-count">' + countHtml + '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+function render() {
+  var wrap = document.getElementById('procWrap');
+  var html = '';
+  var totalItems = 0, totalNum = 0, shownProc = 0;
+
+  ALL_PROCS.forEach(function (p) {
+    var items = p.items.filter(function (it) { return hit(p, it); });
+    if (!items.length) return;
+
+    shownProc++;
+    totalItems += items.length;
+    totalNum += items.reduce(function (a, it) { return a + numOf(it, LEVEL); }, 0);
+
+    // 搜索时自动展开
+    var isOpen = KEYWORD ? true : !!OPEN[p.id];
+    var seqLabel = p.seq;
+
+    html += '<section class="proc' + (isOpen ? ' open' : '') + '" data-proc="' + p.id + '">'
+      + '<div class="proc-head" data-toggle="' + p.id + '">'
+      +   '<div class="proc-seq">' + esc(seqLabel) + '</div>'
+      +   '<div class="proc-names">'
+      +     '<div class="proc-title">' + esc(p.name) + '</div>'
+      +     '<div class="proc-sub">' + items.length + ' 项拍照点</div>'
+      +   '</div>'
+      +   '<div class="proc-num">'
+      +     '<span class="chip chip-r1">R1 ' + sumProc({items:items}, 'r1') + ' 张</span>'
+      +     '<span class="chip chip-r2">R2 ' + sumProc({items:items}, 'r2') + ' 张</span>'
+      +   '</div>'
+      +   '<div class="caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>'
+      + '</div>'
+      + '<div class="proc-body"><div class="proc-inner"><div class="proc-list">'
+      +   items.map(function (it, i) { return renderItem(it, i + 1, LEVEL); }).join('')
+      + '</div></div></div>'
+      + '</section>';
+  });
+
+  wrap.innerHTML = html;
+  document.getElementById('emptyHint').classList.toggle('show', shownProc === 0);
+
+  document.getElementById('countTip').innerHTML =
+    '共 <b>' + shownProc + '</b> 道工序 · <b>' + totalItems + '</b> 项拍照点 · 要求 <b>' + totalNum + '</b> 张';
+}
+
+/* ============================================================
+   交互
+   ============================================================ */
+document.getElementById('procWrap').addEventListener('click', function (e) {
+  var head = e.target.closest('[data-toggle]');
+  if (!head) return;
+  var id = head.getAttribute('data-toggle');
+  OPEN[id] = !OPEN[id];
+  head.parentElement.classList.toggle('open', OPEN[id]);
+});
+
+document.getElementById('segLevel').addEventListener('click', function (e) {
+  var btn = e.target.closest('button[data-level]');
+  if (!btn) return;
+  LEVEL = btn.getAttribute('data-level');
+  Array.prototype.forEach.call(this.querySelectorAll('button'), function (b) {
+    b.classList.toggle('on', b === btn);
+  });
+  render();
+});
+
+var qInput = document.getElementById('q');
+var qTimer = null;
+qInput.addEventListener('input', function () {
+  clearTimeout(qTimer);
+  var v = this.value;
+  qTimer = setTimeout(function () {
+    KEYWORD = v.trim().toLowerCase();
+    render();
+  }, 140);
+});
+
+document.getElementById('btnExpand').addEventListener('click', function () {
+  var anyClosed = ALL_PROCS.some(function (p) { return !OPEN[p.id]; });
+  ALL_PROCS.forEach(function (p) { OPEN[p.id] = anyClosed; });
+  this.textContent = anyClosed ? '全部收起' : '全部展开';
+  render();
+});
+
+/* 初始：默认展开第一道工序 */
+OPEN[PROCESSES[0].id] = true;
+render();
+</script>
+</body>
+</html>
