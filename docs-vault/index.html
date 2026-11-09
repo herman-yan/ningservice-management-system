@@ -1439,69 +1439,6 @@ body {
     background: rgba(255,255,255,0.3);
 }
 
-/* ========== 登录密码门 ========== */
-.login-gate {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-    backdrop-filter: blur(8px);
-}
-.login-gate.hidden { display: none; }
-.login-card {
-    width: 340px;
-    max-width: 86vw;
-    padding: 40px 32px;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-    text-align: center;
-    backdrop-filter: blur(14px);
-}
-.login-icon { font-size: 48px; margin-bottom: 8px; }
-.login-title { margin: 0 0 4px; font-size: 22px; color: #f1f5f9; font-weight: 700; letter-spacing: 1px; }
-.login-sub { margin: 0 0 22px; font-size: 13px; color: #94a3b8; }
-.login-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 13px 16px;
-    margin-bottom: 14px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(15, 23, 42, 0.6);
-    color: #f1f5f9;
-    font-size: 15px;
-    outline: none;
-    transition: border-color 0.2s ease;
-}
-.login-input:focus { border-color: #6366f1; }
-.login-btn {
-    width: 100%;
-    padding: 13px 16px;
-    border: none;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s ease, transform 0.1s ease;
-}
-.login-btn:hover { opacity: 0.92; }
-.login-btn:active { transform: scale(0.98); }
-.login-error { margin: 12px 0 0; font-size: 13px; color: #f87171; }
-.login-error.hidden { display: none; }
-.login-card.shake { animation: login-shake 0.4s ease; }
-@keyframes login-shake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-8px); }
-    40%, 80% { transform: translateX(8px); }
-}
-
 /* ========== 响应式 ========== */
 @media (max-width: 1024px) {
     .sidebar {
@@ -1625,24 +1562,12 @@ body {
 </style>
 </head>
 <body>
-    <!-- ========== 登录密码门 ========== -->
-    <div class="login-gate" id="loginGate">
-        <div class="login-card">
-            <div class="login-icon">🔐</div>
-            <h2 class="login-title">资料管理库</h2>
-            <p class="login-sub">请输入访问密码</p>
-            <input type="password" id="loginInput" class="login-input" placeholder="访问密码" autocomplete="off" />
-            <button id="loginBtn" class="login-btn">进入</button>
-            <p class="login-error" id="loginError" style="display:none;">密码错误，请重试</p>
-        </div>
-    </div>
-
     <div class="bg-decoration">
         <div class="bg-orb bg-orb-1"></div>
         <div class="bg-orb bg-orb-2"></div>
         <div class="bg-orb bg-orb-3"></div>
     </div>
-    <!-- ========== 初始化加载界面（默认隐藏，登录后由 startApp 显示） ========== -->
+    <!-- ========== 初始化加载界面（默认隐藏，进入时由 startApp 显示） ========== -->
     <div class="init-overlay hidden" id="initOverlay">
         <div class="init-icon">☁️</div>
         <h2>资料管理库</h2>
@@ -3525,44 +3450,16 @@ body {
             }
         }
 
-        // ========== 登录密码门 ==========
-        const LOGIN_PASSWORD = String.fromCharCode(106,105,110,106,105,101,49,50,51); // jinjie123
-        const loginGate = document.getElementById('loginGate');
-        const loginInput = document.getElementById('loginInput');
-        const loginBtn = document.getElementById('loginBtn');
-        const loginError = document.getElementById('loginError');
-        const loginCard = loginGate.querySelector('.login-card');
-
-        function tryUnlock() {
-            if (loginInput.value === LOGIN_PASSWORD) {
-                try { sessionStorage.setItem('dv_unlocked', '1'); } catch (e) {}
-                loginGate.classList.add('hidden');
-                startApp();
-            } else {
-                loginError.style.display = 'block';
-                loginCard.classList.add('shake');
-                setTimeout(() => loginCard.classList.remove('shake'), 400);
-                loginInput.value = '';
-                loginInput.focus();
-            }
-        }
-        loginBtn.addEventListener('click', tryUnlock);
-        loginInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
-
         // ========== 启动应用 ==========
         function startApp() {
-            // 显示出 init-overlay（默认是隐藏的，因为要等登录后才进入加载阶段）
+            // 显示出 init-overlay（默认是隐藏的）
             document.getElementById('initOverlay').classList.remove('hidden');
             const app = new DocClassificationApp();
             window.app = app; // 暴露到全局，供详情面板内联 onclick 调用（否则 startApp 内的局部 app 在全局作用域不可见）
             app.init();
         }
-        if (sessionStorage.getItem('dv_unlocked') === '1') {
-            loginGate.classList.add('hidden');
-            startApp();
-        } else {
-            loginInput.focus();
-        }
+        // 直接进入应用
+        startApp();
     </script>
 </body>
 </html>
