@@ -70,6 +70,10 @@ function loadPage(htmlRel, opt) {
   sandbox.self = sandbox;
   const ctx = vm.createContext(sandbox);
   if (!opt.noGuard) vm.runInContext(fs.readFileSync(path.join(__dirname, 'aftersales-guardrails.js'), 'utf8'), ctx, { filename: 'aftersales-guardrails.js' });
+  // 身份面板与浏览器一致地随页加载（页面脚本依赖 window.IDP）
+  if (!opt.noGuard && fs.existsSync(path.join(__dirname, 'identity-panel.js'))) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, 'identity-panel.js'), 'utf8'), ctx, { filename: 'identity-panel.js' });
+  }
   let runError = null;
   try {
     vm.runInContext(code, ctx, { filename: htmlRel });
