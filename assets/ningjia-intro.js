@@ -1,9 +1,9 @@
-/* 宁家服务品牌开场：自动播放一次，支持跳过、回看、暂停与全屏。 */
+/* 宁家服务品牌开场：按需播放，支持跳过、回看、暂停、原创配乐与全屏。 */
 (function () {
   'use strict';
 
   var SESSION_KEY = 'ningjia.workorder.intro.seen.v1';
-  var root, video, playButton, progress, timeLabel, loading, errorBox, closeTimer, loadTimer;
+  var root, video, playButton, soundButton, progress, timeLabel, loading, errorBox, closeTimer, loadTimer;
   var previousFocus = null;
   var isOpen = false;
 
@@ -25,6 +25,8 @@
     .nj-intro__bar{display:flex;align-items:center;gap:14px;max-width:1500px;margin:auto}
     .nj-intro__control{width:40px;height:40px;display:grid;place-items:center;flex:none;border:1px solid rgba(128,195,237,.4);border-radius:50%;background:rgba(8,28,47,.88);color:white;font-size:16px;cursor:pointer}
     .nj-intro__control:hover{background:#006ad6}
+    .nj-intro__sound{font-size:10px;font-weight:700;letter-spacing:.2px}
+    .nj-intro__sound.is-muted{opacity:.68;border-style:dashed}
     .nj-intro__progress{flex:1;min-width:60px;height:4px;accent-color:#006ad6;cursor:pointer}
     .nj-intro__time{min-width:98px;color:#d6e8f8;font-size:12px;font-variant-numeric:tabular-nums;letter-spacing:.5px;text-align:center}
     .nj-intro__caption{display:flex;justify-content:space-between;gap:16px;max-width:1500px;margin:14px auto 0;color:#8ca9c2;font-size:11px;letter-spacing:1px}
@@ -58,7 +60,7 @@
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', '宁家服务维修业务数字孪生开场动画');
     root.innerHTML = `
-      <video class="nj-intro__video" preload="none" playsinline muted poster="../assets/ningjia-digital-twin-poster.jpg" aria-label="北京直营站维修业务数字孪生，64秒品牌动画">
+      <video class="nj-intro__video" preload="none" playsinline muted poster="../assets/ningjia-digital-twin-poster.jpg" aria-label="北京直营站维修业务数字孪生，64秒品牌动画，含原创电子科技配乐">
         <source src="../assets/ningjia-digital-twin.mp4" type="video/mp4">
       </video>
       <div class="nj-intro__top">
@@ -72,6 +74,7 @@
           <button class="nj-intro__control" type="button" data-action="play" aria-label="暂停动画">Ⅱ</button>
           <input class="nj-intro__progress" type="range" min="0" max="64" step="0.1" value="0" aria-label="动画播放进度">
           <span class="nj-intro__time">00:00 / 01:04</span>
+          <button class="nj-intro__control nj-intro__sound is-muted" type="button" data-action="sound" aria-label="开启原创科技配乐" aria-pressed="false" title="开启或关闭配乐">BGM</button>
           <button class="nj-intro__control" type="button" data-action="fullscreen" aria-label="全屏观看">⛶</button>
         </div>
         <div class="nj-intro__caption"><span>北京直营站 · 维修业务数字孪生</span><span>保内 / 保外双工单 · 全流程闭环</span></div>
@@ -80,6 +83,7 @@
 
     video = root.querySelector('video');
     playButton = root.querySelector('[data-action="play"]');
+    soundButton = root.querySelector('[data-action="sound"]');
     progress = root.querySelector('.nj-intro__progress');
     timeLabel = root.querySelector('.nj-intro__time');
     loading = root.querySelector('.nj-intro__loading');
@@ -90,6 +94,7 @@
       if (!action) return;
       if (action.dataset.action === 'close') close();
       if (action.dataset.action === 'play') togglePlay();
+      if (action.dataset.action === 'sound') toggleSound();
       if (action.dataset.action === 'fullscreen') fullscreen();
       if (action.dataset.action === 'retry') startPlayback();
     });
@@ -114,6 +119,7 @@
       closeTimer = window.setTimeout(close, 900);
     });
     video.addEventListener('error', showLoadError);
+    video.addEventListener('volumechange', updateSoundButton);
     progress.addEventListener('input', function () {
       if (Number.isFinite(video.duration)) video.currentTime = Number(progress.value);
       updateProgress();
@@ -162,10 +168,28 @@
     });
   }
 
-  function show() {
+  function updateSoundButton() {
+    if (!soundButton) return;
+    soundButton.classList.toggle('is-muted', video.muted);
+    soundButton.setAttribute('aria-label', video.muted ? '开启原创科技配乐' : '关闭原创科技配乐');
+    soundButton.setAttribute('aria-pressed', video.muted ? 'false' : 'true');
+    soundButton.title = video.muted ? '开启配乐' : '关闭配乐';
+  }
+
+  function toggleSound() {
+    video.muted = !video.muted;
+    video.volume = 0.9;
+    updateSoundButton();
+    if (!video.muted && video.paused) startPlayback();
+  }
+
+  function show(withSound) {
     if (isOpen) return;
     window.clearTimeout(closeTimer);
     isOpen = true;
+    video.muted = !withSound;
+    video.volume = 0.9;
+    updateSoundButton();
     previousFocus = document.activeElement;
     syncViewport();
     root.hidden = true;
@@ -187,7 +211,6 @@
     errorBox.hidden = true;
     loading.hidden = false;
     video.preload = 'auto';
-    video.muted = true;
     loadTimer = window.setTimeout(function () {
       if (isOpen && video.readyState < 2) showLoadError();
     }, 10000);
@@ -257,13 +280,13 @@
 
   function init() {
     build();
-    window.NingjiaIntro = { open: show, close: close };
+    window.NingjiaIntro = { open: function () { show(true); }, close: close };
     /* 默认不自动播放：改为「按需播放」。
        原因：自动播放会在进入页面时用全屏视频盖住登录门，弱网下（视频体积较大）
        会长时间只看到黑屏，容易被误认为「页面打不开」。
        观看入口：侧栏「观看品牌开场」按钮，或在网址后加 ?intro=1 直接唤起。 */
     var force = new URLSearchParams(window.location.search).get('intro') === '1';
-    if (force) { show(); }
+    if (force) { show(false); }
   }
 
   init();
