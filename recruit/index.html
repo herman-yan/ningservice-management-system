@@ -129,7 +129,30 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
   .rcard,.stat{box-shadow:none;border:1px solid #ccc;break-inside:avoid;page-break-inside:avoid}
   .stats{grid-template-columns:repeat(4,1fr)}
   .bar i{background:#333}
+  #resumeLib{display:none}
 }
+/* 候选人简历库 */
+#resumeLib{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:18px}
+#resumeLib .rl-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+#resumeLib h2{font-size:15px;margin:0}
+#resumeLib .rl-count{background:var(--accent2);color:var(--accent);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600}
+#resumeLib .rl-note{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.7}
+#resumeLib .rl-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+#resumeLib input,#resumeLib select,#resumeLib button{font:13px/1.5 inherit;font-family:inherit}
+#resumeLib input,#resumeLib select{padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text)}
+#resumeLib button{padding:6px 11px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);cursor:pointer}
+#resumeLib button:hover{border-color:var(--accent);color:var(--accent)}
+#resumeLib button:disabled{opacity:.45;cursor:default}
+#resumeLib button.rl-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+#resumeLib table{width:100%;border-collapse:collapse;font-size:13px}
+#resumeLib th,#resumeLib td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+#resumeLib th{color:var(--muted);font-weight:600;background:var(--surface2);position:sticky;top:0;z-index:1}
+#resumeLib tbody tr:hover{background:var(--surface2)}
+#resumeLib .rl-tag{display:inline-block;background:var(--blue2);color:var(--blue);border-radius:5px;padding:1px 6px;font-size:11px;margin:1px 3px 1px 0;white-space:nowrap}
+#resumeLib .rl-tag.hl{background:var(--accent2);color:var(--accent);font-weight:600}
+#resumeLib .rl-scroll{max-height:56vh;overflow:auto;border:1px solid var(--border);border-radius:8px}
+#resumeLib .rl-pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;font-size:12px;color:var(--muted)}
+#resumeLib .rl-loading{padding:24px;text-align:center;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -145,6 +168,37 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
   </header>
 
   <div class="notice"><b>合规边界：</b>本工具不登录、不抓取、不模拟访问任何招聘平台，<b>也不接管已登录的浏览器</b> —— 人工登录后由自动化工具操作站内页，同样违反平台协议并会触发风控。请走企业端<b>官方批量下载</b>（BOSS 企业版「下载简历」、猎聘简历下载额度），导出的 <b>ZIP 包可直接拖入本页自动展开</b>。解析、打分与结果全部在本机浏览器内完成，简历数据不上传、不落盘。全自动对接请用 Bosshi 开放平台等官方接口。</div>
+
+  <section id="resumeLib">
+    <div class="rl-head">
+      <h2>候选人简历库</h2>
+      <span class="rl-count" id="rlCount">载入中…</span>
+      <div class="rl-bar" style="margin:0 0 0 auto">
+        <button id="rlBoard" class="rl-primary">载入看板做 JD 匹配</button>
+        <button id="rlCsv">导出 CSV</button>
+        <button id="rlJson">导出 JSON</button>
+      </div>
+    </div>
+    <p class="rl-note" id="rlNote">全部候选人随站点发布，打开即加载。数据为招聘后台「沟通列表」可见的<b>结构化字段汇总，不是简历全文</b>；工作经历 / 教育经历 / 项目经历等原文需通过企业端官方批量下载后导入左侧看板。本站点为公开页面，请勿在此存放敏感联系方式。</p>
+    <div class="rl-bar">
+      <input id="rlSearch" placeholder="搜索姓名 / 岗位 / 标签" style="min-width:230px">
+      <select id="rlLabel"><option value="">全部沟通标签</option></select>
+      <select id="rlJob"><option value="">全部应聘岗位</option></select>
+      <span class="hint" id="rlMeta"></span>
+    </div>
+    <div class="rl-scroll">
+      <table>
+        <thead><tr><th style="width:46px">#</th><th style="width:100px">姓名</th><th>应聘岗位</th><th style="width:60px">年龄</th><th style="width:210px">沟通标签</th><th style="width:90px">最近联系</th><th style="width:170px">简历文件</th></tr></thead>
+        <tbody id="rlBody"><tr><td colspan="7" class="rl-loading">正在载入简历库…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="rl-pager">
+      <span id="rlPageInfo"></span>
+      <button id="rlPrev">上一页</button>
+      <button id="rlNext">下一页</button>
+      <select id="rlPageSize"><option value="40">每页 40</option><option value="100">每页 100</option><option value="200">每页 200</option></select>
+    </div>
+  </section>
 
   <div class="cols">
     <aside class="side">
@@ -1279,8 +1333,36 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       name: 'Bosshi 官方 API（经自建服务端代理）',
       /* 浏览器只调用代理；AppID / AppSecret / access_token 全部留在服务端 */
       load: function () { return fetchFromProxy(); }
+    },
+    bundled: {
+      name: '站点内置简历库',
+      load: function () { return loadBundledToBoard(); }
     }
   };
+
+  /* 随站点发布的候选人结构化数据；仅在用户点击时载入打分引擎 */
+  async function loadBundledToBoard() {
+    try {
+      var res = await fetch('./resumes.json', { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var j = await res.json();
+      if (!j || !Array.isArray(j.items)) throw new Error('返回格式不符合契约 {items:[...]}');
+      state.resumes = state.resumes.filter(function (r) { return r.source !== 'bundled'; });
+      var n = 0;
+      j.items.forEach(function (it) {
+        if (it && typeof it.text === 'string' && it.text.trim()) {
+          addResume(it.text, it.filename || ('bundled-' + n), 'bundled'); n++;
+        }
+      });
+      logFile('内置简历库', '载入 ' + n + ' 份（结构化字段，非简历全文）');
+      recompute();
+      return n;
+    } catch (e) {
+      logFile('内置简历库', '失败：' + e.message, true);
+      return 0;
+    }
+  }
+  window.RSBundledLoad = loadBundledToBoard;
 
   async function fetchFromProxy() {
     var base = $('proxyUrl').value.trim().replace(/\/$/, '');
@@ -1463,7 +1545,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       '<div class="rhead"><div class="rank">' + (idx + 1) + '</div>' +
       '<div class="who"><div class="nm">' + esc(r.name || '姓名未识别') +
       ' <span class="badge b-' + esc(r.grade) + '">' + esc(r.grade) + '</span></div>' +
-      '<div class="fn">' + esc(r.filename) + ' · ' + esc(r.source === 'bosshi' ? '官方 API 代理' : r.source === 'demo' ? '演示数据' : r.source === 'zip' ? '官方导出 ZIP' : '本地文件') +
+      '<div class="fn">' + esc(r.filename) + ' · ' + esc(r.source === 'bosshi' ? '官方 API 代理' : r.source === 'demo' ? '演示数据' : r.source === 'zip' ? '官方导出 ZIP' : r.source === 'bundled' ? '内置简历库' : '本地文件') +
       (r.confidence < 100 ? ' · 置信度 ' + r.confidence + '%' : '') + '</div></div>' +
       '<div class="score"><div class="v">' + (r.score == null ? '—' : r.score) + '</div><div class="c">匹配分 / 100</div></div></div>' +
       knock + must + dup +
@@ -1664,6 +1746,103 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
+})();
+</script>
+<script>
+/* 候选人简历库：独立模块，不触碰看板原有状态 */
+(function () {
+  var DATA = null, page = 1, size = 40;
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function filtered() {
+    var q = ($('rlSearch').value || '').trim().toLowerCase();
+    var lb = $('rlLabel').value, jb = $('rlJob').value;
+    return (DATA ? DATA.items : []).filter(function (it) {
+      if (lb && (it.labels || []).indexOf(lb) < 0) return false;
+      if (jb && (it.job || '') !== jb) return false;
+      if (q) {
+        var s = ((it.name || '') + ' ' + (it.job || '') + ' ' + (it.labels || []).join(' ') + ' ' + (it.filename || '')).toLowerCase();
+        if (s.indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+  }
+  function render() {
+    var list = filtered(), total = list.length, pages = Math.max(1, Math.ceil(total / size));
+    if (page > pages) page = pages;
+    var start = (page - 1) * size, rows = list.slice(start, start + size);
+    $('rlBody').innerHTML = rows.length ? rows.map(function (it, i) {
+      var tags = (it.labels || []).map(function (t) { return '<span class="rl-tag' + (t === '已获取简历' ? ' hl' : '') + '">' + esc(t) + '</span>'; }).join('');
+      return '<tr><td>' + (start + i + 1) + '</td><td><b>' + esc(it.name || '—') + '</b></td><td>' + esc(it.job || '—') + '</td><td>' + esc(it.age || '—') + '</td><td>' + tags + '</td><td>' + esc(it.lastTime || '—') + '</td><td style="font-size:11px;color:var(--muted)">' + esc(it.filename || '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="rl-loading">没有匹配的候选人</td></tr>';
+    $('rlPageInfo').textContent = '共 ' + total + ' 人 · 第 ' + page + ' / ' + pages + ' 页';
+    $('rlMeta').textContent = DATA ? ('数据源：' + DATA.source) : '';
+    $('rlPrev').disabled = page <= 1; $('rlNext').disabled = page >= pages;
+  }
+  function fillSelects() {
+    var labs = {}, jobs = {};
+    DATA.items.forEach(function (it) {
+      (it.labels || []).forEach(function (t) { labs[t] = (labs[t] || 0) + 1; });
+      if (it.job) jobs[it.job] = (jobs[it.job] || 0) + 1;
+    });
+    Object.keys(labs).sort(function (a, b) { return labs[b] - labs[a]; }).forEach(function (t) {
+      var o = document.createElement('option'); o.value = t; o.textContent = t + ' (' + labs[t] + ')'; $('rlLabel').appendChild(o);
+    });
+    Object.keys(jobs).sort(function (a, b) { return jobs[b] - jobs[a]; }).forEach(function (t) {
+      var o = document.createElement('option'); o.value = t; o.textContent = t.length > 28 ? t.slice(0, 28) + '…' : t; $('rlJob').appendChild(o);
+    });
+  }
+  function download(name, content, type) {
+    var b = new Blob([content], { type: type }), u = URL.createObjectURL(b), a = document.createElement('a');
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 1500);
+  }
+  function toCsv(list) {
+    var head = ['序号', '姓名', '应聘岗位', '年龄', '期望城市', '沟通标签', '最近联系', '岗位ID', '在线简历ID', '简历文件'];
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var lines = [head.map(q).join(',')];
+    list.forEach(function (it, i) {
+      lines.push([i + 1, it.name, it.job, it.age, it.city, (it.labels || []).join('、'), it.lastTime, it.jobId, it.expectId, it.filename].map(q).join(','));
+    });
+    return '\ufeff' + lines.join('\r\n');
+  }
+  fetch('./resumes.json', { headers: { 'Accept': 'application/json' } })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (j) {
+      if (!j || !Array.isArray(j.items)) throw new Error('数据格式不符');
+      DATA = j;
+      $('rlCount').textContent = j.total + ' 人';
+      fillSelects(); render();
+    })
+    .catch(function (e) {
+      $('rlCount').textContent = '载入失败';
+      $('rlBody').innerHTML = '<tr><td colspan="7" class="rl-loading">简历库载入失败：' + esc(e.message) + '</td></tr>';
+    });
+  $('rlSearch').addEventListener('input', function () { page = 1; render(); });
+  ['rlLabel', 'rlJob'].forEach(function (id) { $(id).addEventListener('change', function () { page = 1; render(); }); });
+  $('rlPrev').addEventListener('click', function () { if (page > 1) { page--; render(); } });
+  $('rlNext').addEventListener('click', function () { page++; render(); });
+  $('rlPageSize').addEventListener('change', function () { size = +this.value; page = 1; render(); });
+  $('rlCsv').addEventListener('click', function () {
+    if (!DATA) return;
+    var list = filtered();
+    download('BOSS候选人简历库_' + list.length + '人.csv', toCsv(list), 'text/csv;charset=utf-8');
+  });
+  $('rlJson').addEventListener('click', function () {
+    if (!DATA) return;
+    var list = filtered();
+    download('BOSS候选人简历库_' + list.length + '人.json',
+      JSON.stringify({ generatedAt: DATA.generatedAt, source: DATA.source, note: DATA.note, total: list.length, items: list }, null, 2),
+      'application/json;charset=utf-8');
+  });
+  $('rlBoard').addEventListener('click', function () {
+    if (typeof window.RSBundledLoad !== 'function') { alert('看板组件未就绪，请刷新页面重试。'); return; }
+    var b = this; b.textContent = '载入中…'; b.disabled = true;
+    window.RSBundledLoad().then(function (n) {
+      b.textContent = '载入看板做 JD 匹配'; b.disabled = false;
+      if (n) { var c = document.querySelector('.cols'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  });
 })();
 </script>
 </body>
