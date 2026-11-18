@@ -258,14 +258,12 @@
   function init() {
     build();
     window.NingjiaIntro = { open: show, close: close };
-    var seen = false;
-    try { seen = sessionStorage.getItem(SESSION_KEY) === '1'; } catch (e) {}
+    /* 默认不自动播放：改为「按需播放」。
+       原因：自动播放会在进入页面时用全屏视频盖住登录门，弱网下（视频体积较大）
+       会长时间只看到黑屏，容易被误认为「页面打不开」。
+       观看入口：侧栏「观看品牌开场」按钮，或在网址后加 ?intro=1 直接唤起。 */
     var force = new URLSearchParams(window.location.search).get('intro') === '1';
-    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if ((!seen && !reduced) || force) {
-      try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) {}
-      show();
-    }
+    if (force) { show(); }
   }
 
   init();
