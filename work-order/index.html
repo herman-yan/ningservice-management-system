@@ -299,6 +299,7 @@ tbody tr { cursor: pointer; }
 </div>
 
 <script src="../assets/aftersales-guardrails.js"></script>
+<script src="../assets/dispatch-notify.js"></script>
 <script src="../assets/identity-panel.js"></script>
 <script src="../assets/auth-core.js"></script>
 <script src="../assets/auth-gate.js"></script>
@@ -492,6 +493,23 @@ function afStatusPill(kind, o) {
   return `<span class="status-pill status-${s}">${s}</span>${tag}`;
 }
 
+// 派单成功后推送钉钉提醒。提醒失败不阻断工单流转，结果回写状态栏。
+function pushDispatchNotice(kind, order, engineer, doneMsg) {
+  if (!engineer) return;
+  if (typeof DISPATCH_NOTIFY === 'undefined') {
+    showUploadStatus((doneMsg || '派单已完成') + '；钉钉提醒模块未加载', 'error');
+    return;
+  }
+  const label = kind === 'WN' ? '保内' : '保外';
+  const operator = (typeof ME !== 'undefined' && ME && ME.name) ? ME.name : '';
+  DISPATCH_NOTIFY.notify(label, order, engineer, operator).then(r => {
+    const tail = r.ok
+      ? ('钉钉提醒已推送给 ' + engineer)
+      : ('钉钉提醒未送达（' + r.msg + '）');
+    showUploadStatus((doneMsg || '派单已完成') + '；' + tail, r.ok ? 'success' : 'error');
+  });
+}
+
 // 统一的流转出口：所有状态变化都经过这里，保证合法性、幂等、质检事实与留痕
 function afCommit(kind, id, action, payload) {
   const o = afFindOrder(kind, id);
@@ -513,7 +531,13 @@ function afCommit(kind, id, action, payload) {
   saveData(APP);
   closeModal();
   renderPage();
-  showUploadStatus('已流转至「' + o.status + '」，操作已留痕', 'success');
+  const flowMsg = '已流转至「' + o.status + '」，操作已留痕';
+  if (action === 'dispatch') {
+    showUploadStatus(flowMsg + '，正在推送钉钉提醒…', 'info');
+    pushDispatchNotice(kind, o, payload.engineer, flowMsg);
+  } else {
+    showUploadStatus(flowMsg, 'success');
+  }
 }
 
 // 通用动作弹窗：按动作类型选择要采集的事实
@@ -1518,7 +1542,10 @@ function saveNonWarranty(editId) {
   data.grossProfit = (ra - pc - lf - ps).toFixed(2);
   data.grossMargin = ra > 0 ? (data.grossProfit / ra * 100).toFixed(2) + '%' : '';
 
+  let prevEngineer = '';
   if(editId) {
+    const oldOrder = afFindOrder('NW', editId);
+    prevEngineer = oldOrder ? (oldOrder.repairEngineer || '') : '';
     const idx = afIndexOfNw(editId);
     if(idx >= 0) Object.assign(APP.nonWarrantyOrders[idx], data);
   } else {
@@ -1533,6 +1560,9 @@ function saveNonWarranty(editId) {
   saveData(APP);
   closeModal();
   renderPage();
+  if (data.repairEngineer && data.repairEngineer !== prevEngineer) {
+    pushDispatchNotice('NW', data, data.repairEngineer, '保外工单已保存');
+  }
 }
 
 // ===== DETAIL VIEWS =====
