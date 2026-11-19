@@ -153,6 +153,24 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
 #resumeLib .rl-scroll{max-height:56vh;overflow:auto;border:1px solid var(--border);border-radius:8px}
 #resumeLib .rl-pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;font-size:12px;color:var(--muted)}
 #resumeLib .rl-loading{padding:24px;text-align:center;color:var(--muted)}
+.quick{background:var(--accent2);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:10px;padding:10px;margin-bottom:10px}
+.quick label{display:block;font-size:12.5px;font-weight:600;color:var(--accent);margin-bottom:6px}
+.quick textarea{min-height:64px;background:var(--surface)}
+.quick .row{margin-top:6px}
+.vstat{font-size:12px;color:var(--muted);line-height:1.6}
+.vaultlist{max-height:230px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px}
+.vrow{padding:7px 8px;border-bottom:1px solid var(--border)}
+.vrow:last-child{border-bottom:0}
+.vtop{display:flex;align-items:center;gap:6px}
+.vname{font-size:12.5px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vsrc{font-size:11px;color:var(--muted);white-space:nowrap}
+.vdel{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;padding:0 2px;line-height:1}
+.vdel:hover{color:var(--danger)}
+.vbot{display:flex;gap:6px;margin-top:5px}
+.vbot select{width:98px;flex:none;padding:3px 6px;font-size:12px}
+.vbot input{flex:1;min-width:0;padding:3px 8px;font-size:12px}
+.vchip{display:inline-block;background:var(--blue2);color:var(--blue);border-radius:5px;padding:0 5px;font-size:11px}
+.vnote{margin-top:6px;font-size:12px;color:var(--muted);background:var(--surface2);border-radius:6px;padding:5px 8px}
 </style>
 </head>
 <body>
@@ -225,6 +243,11 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         <h2>3 · 简历数据源</h2>
         <div class="tabs"><button data-tab="local" class="on">本地文件</button><button data-tab="api">官方 API（预留）</button></div>
         <div id="tabLocal">
+          <div class="quick">
+            <label>⚡ 快速入库 · 从聊天窗口复制简历，Ctrl+V 自动入库</label>
+            <textarea id="quickPaste" rows="3" placeholder="在 BOSS / 猎聘对话框里在线预览或下载候选人简历后，复制文本粘贴到这里：自动识别、去重、打分并写入本机简历库；多份简历自动切分（也可用单独一行 --- 分隔）"></textarea>
+            <div class="row"><button id="btnQuick" class="btn primary">立即入库</button><span id="quickMsg" class="hint">粘贴后自动入库，无需点按钮</span></div>
+          </div>
           <div id="drop" class="drop">拖拽简历，或平台官方导出的 ZIP 包<span class="hint">.zip 自动展开（含中文名 / 嵌套包）；.txt / .md / .csv / .json / .docx 离线可解析；.pdf 需联网加载解析器</span></div>
           <input id="fileInput" type="file" multiple accept=".zip,.txt,.md,.csv,.json,.docx,.pdf" hidden>
           <details class="paste"><summary>或直接粘贴简历文本</summary>
@@ -242,11 +265,25 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       </section>
 
       <section class="card">
-        <h2>4 · 选项</h2>
+        <h2>4 · 入库简历库（本机）</h2>
+        <div id="vaultStat" class="vstat">简历库初始化中…</div>
+        <div class="row">
+          <select id="vaultFilter" style="max-width:132px"><option value="">全部状态</option><option>待筛</option><option>已邀约</option><option>面试中</option><option>已录用</option><option>淘汰</option></select>
+          <button id="btnVaultExport" class="btn sm">导出备份</button>
+          <label for="vaultImport" class="btn sm" style="cursor:pointer">导入备份</label>
+          <button id="btnVaultClear" class="btn sm ghost danger">清空库</button>
+        </div>
+        <input id="vaultImport" type="file" accept=".json" hidden>
+        <div id="vaultList" class="vaultlist"></div>
+        <p class="hint" style="margin-top:8px">与顶部「候选人简历库（站点名册，862 人结构化字段）」不同：这里存的是<b>你从聊天窗口 / 官方导出导入的简历全文</b>，只存本机浏览器，刷新不丢、<b>不上传服务器</b>、不随站点发布；本站公开，其他人打开看到的是空库。换设备或清浏览器数据前请先「导出备份」。</p>
+      </section>
+
+      <section class="card">
+        <h2>5 · 选项</h2>
         <label class="switch"><input type="checkbox" id="optMask"> 去识别化（隐去姓名 / 电话 / 邮箱）</label>
         <div class="row">
           <button id="btnDemo" class="btn">载入演示数据</button>
-          <button id="btnClear" class="btn ghost danger">清空简历</button>
+          <button id="btnClear" class="btn ghost danger">清空演示 / 临时数据</button>
         </div>
         <p class="hint" id="demoNotice" style="margin-top:8px"></p>
       </section>
@@ -260,7 +297,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         <span id="resultMeta" class="hint spacer"></span>
       </div>
       <div id="results"></div>
-      <div id="empty" class="empty"><b>还没有简历</b>从左侧导入本地简历文件、粘贴文本，或先「载入演示数据」看效果。</div>
+      <div id="empty" class="empty"><b>还没有简历</b>从聊天窗口复制简历粘贴到左侧「快速入库」，或拖入官方导出的 ZIP；也可点顶部「载入看板做 JD 匹配」载入站点名册，或先「载入演示数据」看效果。</div>
     </main>
   </div>
 
@@ -272,13 +309,15 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     <button id="btnCloseHelp" class="btn ghost close">关闭</button>
     <h3>使用说明与已知限制</h3>
     <h4>三步跑通</h4>
-    <p>① 粘贴岗位 JD → 点「解析并生成规则」→ 在规则表里核对 / 调权重 / 设硬门槛；② 导入简历（官方导出 ZIP、单份文件或粘贴）；③ 看右侧排名、展开证据、打印或导出。</p>
+    <p>① 粘贴岗位 JD → 点「解析并生成规则」→ 在规则表里核对 / 调权重 / 设硬门槛；② 从聊天窗口复制简历粘贴到「快速入库」（或拖入 ZIP / 单份文件、点顶部「载入看板做 JD 匹配」）→ 自动入库并打分；③ 看右侧排名、在「入库简历库」标记状态与备注、展开证据、打印或导出。</p>
+    <h4>快速入库与入库简历库（对话场景）</h4>
+    <p>在 BOSS 企业版与候选人沟通、拿到<b>附件简历 / 在线简历</b>后（平台自带「索要简历 / 下载 / 发送至邮箱」功能），复制简历文本粘贴到左侧「快速入库」框 —— <b>Ctrl+V 即自动解析、去重、打分并写入本机入库简历库</b>，右侧排名立刻更新；下载的 PDF / DOCX 可直接拖入，官方批量导出的 ZIP 也会自动增量入库。<br>库内可为每人标记<b>待筛 / 已邀约 / 面试中 / 已录用 / 淘汰</b>并写备注，支持按状态筛选、单条移除、导出 JSON 备份与导入恢复。重复简历（同一手机号 / 邮箱 / 姓名或全文一致）自动跳过，不再重复计分。<br><b>与顶部「候选人简历库」的区别</b>：顶部是随站点发布的 862 人结构化名册（只读，可搜索 / 筛选 / 导出 / 一键载入看板）；本面板是<b>你自己导入的简历全文，只存在本机浏览器</b>，不上传、不随站点发布。演示数据与站点名册均<b>不写入本机入库简历库</b>。</p>
     <h4>官方导出 ZIP（推荐路径）</h4>
     <p>在 BOSS 企业版「人才库 / 沟通中」勾选候选人 → 点【下载简历】→ 选 PDF，得到打包 ZIP；猎聘按套餐的简历下载额度同样可批量导出。<b>把 ZIP 直接拖进左侧即可</b>：自动展开逐个解析，支持中文（UTF-8 / GBK）文件名、嵌套压缩包，自动跳过目录、系统附带文件、加密与超限条目。平台导出的 <b>CSV / JSON 结构化数据包</b>会按行 / 按记录拆成多份候选人；含候选人字段表头的才拆，普通简历式 CSV 不会被误拆。<br>ZIP 全程用浏览器原生 <b>DecompressionStream</b> 解压，不引第三方库、不联网、不上传。加密压缩包（导出时设了密码）无法解析，会逐条提示；ZIP64 超大包与单份超 8MB 的条目会跳过，请在平台分批导出。</p>
     <h4>打分口径</h4>
     <p>硬门槛不满足 → 一票否决并归 0 分。其余规则按「完全命中 1.0 / 原文部分命中 0.6 / 未命中 0」乘权重，归一化到 0–100。<b>简历未体现的项目按 0 分计入分母</b>，但单列「待核实」并生成追问，不会写死成「不具备」。<b>置信度</b>= 可判定项权重占比，越低说明简历信息越缺。</p>
     <h4>已知限制</h4>
-    <p>• 离线为纯关键词 + 同义词词典匹配，<b>无语义理解</b>，同义表述可能漏判，请在规则表补关键词。<br>• .zip / .docx 依赖浏览器原生 DecompressionStream（Chrome / Edge 103+）；不支持时请另存为 .txt。加密 ZIP、ZIP64、单份超 8MB 条目会被跳过并逐条提示。<br>• .pdf 需联网从 CDN 加载 pdf.js；离线状态请粘贴文本或转 .txt / .docx。ZIP 内 PDF 较多时逐份解析较慢，建议导出为文本格式。<br>• 图片简历 / 扫描件 <b>不支持 OCR</b>，需先转成文本。<br>• 中文简历版式自由，姓名 / 年限 / 学历可能识别不到，此时如实标注「未识别」而非猜测。<br>• 简历原文不写入 localStorage，仅 JD 与规则会本地保存以便下次打开。</p>
+    <p>• 离线为纯关键词 + 同义词词典匹配，<b>无语义理解</b>，同义表述可能漏判，请在规则表补关键词。<br>• .zip / .docx 依赖浏览器原生 DecompressionStream（Chrome / Edge 103+）；不支持时请另存为 .txt。加密 ZIP、ZIP64、单份超 8MB 条目会被跳过并逐条提示。<br>• .pdf 需联网从 CDN 加载 pdf.js；离线状态请粘贴文本或转 .txt / .docx。ZIP 内 PDF 较多时逐份解析较慢，建议导出为文本格式。<br>• 图片简历 / 扫描件 <b>不支持 OCR</b>，需先转成文本。<br>• 中文简历版式自由，姓名 / 年限 / 学历可能识别不到，此时如实标注「未识别」而非猜测。<br>• 入库简历库存于本机浏览器 IndexedDB（不支持时降级 localStorage / 内存），<b>不上传服务器</b>；公开站点上其他人打开看到的是空库。换设备、清浏览器数据或用无痕模式前请先「导出备份」。</p>
     <h4>演示数据</h4>
     <p>「载入演示数据」中的候选人与联系方式<b>全部为虚构内容</b>，示例 JD 仅为模板，请替换为真实岗位要求后再用于筛选。</p>
   </div>
@@ -1142,11 +1181,243 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
   };
 });
 </script>
+<script>/* resume-screener 简历库核心 —— 纯计算，无 DOM / 无存储 / 无网络依赖
+ * 可在 Node 中完整单测；浏览器侧挂 window.RSStoreCore。
+ * 职责：文本清洗、多份简历切分、去重键、增量合并、备份序列化、统计。
+ */
+(function (root, factory) {
+  var m = factory();
+  if (typeof module === 'object' && module.exports) module.exports = m;
+  else root.RSStoreCore = m;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var VERSION = '1.0.0';
+  var STATUSES = ['待筛', '已邀约', '面试中', '已录用', '淘汰'];
+
+  function safeStr(s) { return s == null ? '' : String(s); }
+  function trim(s) { return safeStr(s).trim(); }
+
+  /* FNV-1a 32 位，按 UTF-16 高低字节展开，中文不丢位；附加长度降低碰撞 */
+  function hash32(s) {
+    var str = safeStr(s), h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      h ^= c & 0xff; h = Math.imul(h, 0x01000193) >>> 0;
+      h ^= c >>> 8; h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(36) + '-' + str.length.toString(36);
+  }
+
+  /* 归一化：去空白与标点，只留中英文与数字，用于版式无关的全文指纹 */
+  function normalize(s) {
+    return safeStr(s).toLowerCase().replace(/[^0-9a-z\u4e00-\u9fa5]/g, '');
+  }
+
+  /* 清洗聊天粘贴 / PDF 取文本的常见噪声；保守处理，不删正文 */
+  function cleanText(raw) {
+    var s = safeStr(raw)
+      .replace(/\r\n?/g, '\n')
+      .replace(/\f/g, '\n')
+      .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/[ ]+\n/g, '\n')
+      .replace(/\n[ ]+/g, '\n');
+    var lines = s.split('\n').filter(function (l) {
+      var t = l.trim();
+      if (!t) return true;
+      /* 孤立页码行：第 3 页 / 3 / 3/8 / 3 of 8 */
+      if (/^(?:第\s*)?\d{1,3}\s*(?:\/\s*\d{1,3})?\s*(?:页)?\s*$/.test(t)) return false;
+      if (/^\d{1,3}\s*(?:of|\/)\s*\d{1,3}\s*$/i.test(t)) return false;
+      return true;
+    });
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  /* 多份切分：优先显式分隔线；否则仅在出现 >=2 个强开头且每段足够长时自动切 */
+  function splitResumes(raw) {
+    var s = safeStr(raw).replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ');
+    if (!s.trim()) return [];
+
+    var explicit = s.split(/^\s*(?:-{3,}|={3,}|\*{3,}|\u2014{3,}|_{3,})\s*$/m);
+    if (explicit.length > 1) {
+      var parts = explicit.map(cleanText).filter(function (p) { return p.length >= 20; });
+      if (parts.length > 1) return parts.map(function (p, i) { return { text: p, index: i + 1 }; });
+      if (parts.length === 1) return [{ text: parts[0], index: 1 }];
+    }
+
+    var c = cleanText(s), lines = c.split('\n'), marks = [];
+    lines.forEach(function (l, i) {
+      if (/^\s*(?:姓\s*名\s*[：:]|个\s*人\s*简\s*历\s*$)/.test(l)) marks.push(i);
+    });
+    if (marks.length >= 2) {
+      var chunks = [], cur = 0;
+      for (var j = 1; j < marks.length; j++) {
+        var seg = lines.slice(cur, marks[j]).join('\n').trim();
+        if (seg.length >= 120) { chunks.push(seg); cur = marks[j]; }
+      }
+      var last = lines.slice(cur).join('\n').trim();
+      if (last.length >= 120) chunks.push(last);
+      if (chunks.length > 1) return chunks.map(function (p, i) { return { text: p, index: i + 1 }; });
+    }
+    return [{ text: c, index: 1 }];
+  }
+
+  /* 去重键优先级：手机号 > 邮箱 > 姓名+学历+年限 > 全文指纹 */
+  function keyOf(c) {
+    c = c || {};
+    var phone = safeStr(c.phone).replace(/\D/g, '');
+    if (/^1[3-9]\d{9}$/.test(phone)) return 'p:' + phone;
+    var email = trim(c.email).toLowerCase();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'e:' + email;
+    var name = trim(c.name);
+    if (/^[\u4e00-\u9fa5]{2,4}$/.test(name)) {
+      return 'n:' + name + '|' + safeStr(c.eduName) + '|' + (c.years == null ? '' : c.years);
+    }
+    return 'f:' + hash32(normalize(safeStr(c.text).slice(0, 20000)));
+  }
+
+  function makeRecord(o) {
+    o = o || {};
+    var ct = o.contact || {};
+    return {
+      id: o.id || ('k' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)),
+      key: o.key || '',
+      filename: trim(o.filename) || '未命名',
+      text: safeStr(o.text),
+      source: o.source || 'local',
+      status: STATUSES.indexOf(o.status) >= 0 ? o.status : '待筛',
+      note: safeStr(o.note).slice(0, 500),
+      addedAt: o.addedAt || new Date().toISOString(),
+      updatedAt: o.updatedAt || null,
+      contact: {
+        name: trim(ct.name), phone: trim(ct.phone), email: trim(ct.email),
+        years: ct.years == null ? null : ct.years, eduName: trim(ct.eduName)
+      }
+    };
+  }
+
+  /* 增量合并：existing 不被修改；incoming 内部与库内双重去重 */
+  function mergeRecords(existing, incoming, opts) {
+    opts = opts || {};
+    var ex = (Array.isArray(existing) ? existing : []).slice();
+    var inc = Array.isArray(incoming) ? incoming : [];
+    var seen = {};
+    ex.forEach(function (r) { if (r && r.key) seen[r.key] = r.id; });
+    var added = [], skipped = [], merged = [];
+
+    inc.forEach(function (it, i) {
+      it = it || {};
+      var fname = trim(it.filename) || ('第' + (i + 1) + '份');
+      if (typeof it.text !== 'string' || !it.text.trim()) {
+        skipped.push({ filename: fname, key: '', reason: '内容为空' }); return;
+      }
+      var key = it.key || keyOf({
+        text: it.text, filename: fname,
+        phone: it.contact && it.contact.phone, email: it.contact && it.contact.email,
+        name: it.contact && it.contact.name, eduName: it.contact && it.contact.eduName,
+        years: it.contact && it.contact.years
+      });
+      if (seen[key]) {
+        var old = null;
+        for (var j = 0; j < ex.length; j++) { if (ex[j].key === key) { old = ex[j]; break; } }
+        if (opts.updateLonger && old && it.text.length > safeStr(old.text).length + 40) {
+          var idx = ex.indexOf(old);
+          var fresh = makeRecord({
+            id: old.id, key: old.key, filename: old.filename, source: old.source,
+            status: old.status, note: old.note, addedAt: old.addedAt, contact: old.contact,
+            text: it.text, updatedAt: new Date().toISOString()
+          });
+          if (idx >= 0) ex[idx] = fresh;
+          seen[key] = fresh.id;
+          merged.push({ filename: fname, key: key, reason: '已用较完整版本更新原文' });
+        } else {
+          skipped.push({ filename: fname, key: key, reason: '与库中已有简历重复' });
+        }
+        return;
+      }
+      var rec = makeRecord({
+        id: it.id, key: key, text: it.text, filename: fname, source: it.source,
+        status: it.status, note: it.note, addedAt: it.addedAt, contact: it.contact
+      });
+      ex.push(rec); seen[key] = rec.id; added.push(rec);
+    });
+    return { records: ex, added: added, skipped: skipped, merged: merged };
+  }
+
+  /* 备份：JSON 明文（本机文件，用户自行保管）；渲染层负责转义，不做 HTML 过滤 */
+  function serializeBackup(records, meta) {
+    var list = (Array.isArray(records) ? records : []).map(makeRecord);
+    return JSON.stringify({
+      format: 'rs-resume-vault', version: 1,
+      exportedAt: new Date().toISOString(),
+      count: list.length, meta: meta || {}, records: list
+    }, null, 2);
+  }
+
+  function parseBackup(json) {
+    var o;
+    try { o = typeof json === 'string' ? JSON.parse(json) : json; }
+    catch (e) { return { ok: false, error: '不是有效的 JSON：' + e.message, records: [], warnings: [] }; }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      return { ok: false, error: '备份内容为空或格式错误', records: [], warnings: [] };
+    }
+    if (o.format !== 'rs-resume-vault') {
+      return { ok: false, error: '不是本看板的简历库备份（format 不匹配）', records: [], warnings: [] };
+    }
+    if (!Array.isArray(o.records)) {
+      return { ok: false, error: '缺少 records 数组', records: [], warnings: [] };
+    }
+    var warnings = [], items = [];
+    o.records.forEach(function (r, i) {
+      if (!r || typeof r !== 'object') { warnings.push('第 ' + (i + 1) + ' 条格式错误，已跳过'); return; }
+      if (typeof r.text !== 'string' || !r.text.trim()) { warnings.push('第 ' + (i + 1) + ' 条正文为空，已跳过'); return; }
+      var ct = r.contact && typeof r.contact === 'object' ? r.contact : {};
+      items.push({
+        id: typeof r.id === 'string' && r.id ? r.id : undefined,
+        key: typeof r.key === 'string' ? r.key : '',
+        filename: r.filename, text: r.text, source: r.source,
+        status: r.status, note: r.note, addedAt: r.addedAt,
+        contact: {
+          name: ct.name, phone: ct.phone, email: ct.email,
+          years: ct.years, eduName: ct.eduName
+        }
+      });
+    });
+    var merged = mergeRecords([], items);
+    return {
+      ok: true, records: merged.records, exportedAt: safeStr(o.exportedAt),
+      warnings: warnings.concat(merged.skipped.map(function (s) {
+        return s.filename + '：' + s.reason;
+      }))
+    };
+  }
+
+  function vaultStats(records, now) {
+    var list = Array.isArray(records) ? records : [];
+    var byStatus = {}; STATUSES.forEach(function (s) { byStatus[s] = 0; });
+    var month = (now || new Date()).toISOString().slice(0, 7), thisMonth = 0;
+    list.forEach(function (r) {
+      if (r && byStatus[r.status] != null) byStatus[r.status]++;
+      if (r && safeStr(r.addedAt).slice(0, 7) === month) thisMonth++;
+    });
+    return { total: list.length, thisMonth: thisMonth, byStatus: byStatus };
+  }
+
+  return {
+    VERSION: VERSION, STATUSES: STATUSES,
+    safeStr: safeStr, hash32: hash32, normalize: normalize,
+    cleanText: cleanText, splitResumes: splitResumes, keyOf: keyOf,
+    makeRecord: makeRecord, mergeRecords: mergeRecords,
+    serializeBackup: serializeBackup, parseBackup: parseBackup, vaultStats: vaultStats
+  };
+});
+</script>
 <script>/* resume-screener UI - 单文件离线看板逻辑 */
 (function () {
   'use strict';
-  var E = window.RSEngine, DEMO = window.RSDemo, B = window.RSBulk;
-  if (!E || !DEMO || !B) { document.body.innerHTML = '<p style="padding:30px">引擎未加载，请重新构建 HTML。</p>'; return; }
+  var E = window.RSEngine, DEMO = window.RSDemo, B = window.RSBulk, S = window.RSStoreCore;
+  if (!E || !DEMO || !B || !S) { document.body.innerHTML = '<p style="padding:30px">引擎未加载，请重新构建 HTML。</p>'; return; }
 
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) {
@@ -1163,10 +1434,11 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
   }
 
   var state = {
-    jd: null, resumes: [], out: null, viewList: [],
-    masked: false, search: '', grade: '', demoLoaded: false
+    jd: null, vault: [], demoResumes: [], out: null, viewList: [],
+    masked: false, search: '', grade: '', demoLoaded: false,
+    vaultFilter: '', blocked: 0, backend: ''
   };
-  var fileLogs = [];
+  var fileLogs = [], pending = [], vaultReady = Promise.resolve();
 
   /* ---------- 文件解析 ---------- */
   function u16(dv, o) { return dv.getUint16(o, true); }
@@ -1336,21 +1608,25 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     }
   };
 
-  /* 随站点发布的候选人结构化数据；仅在用户点击时载入打分引擎 */
+  /* 随站点发布的候选人结构化字段：仅在用户点击时临时载入看板，不写入本机简历库 */
   async function loadBundledToBoard() {
     try {
       var res = await fetch('./resumes.json', { headers: { 'Accept': 'application/json' } });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var j = await res.json();
       if (!j || !Array.isArray(j.items)) throw new Error('返回格式不符合契约 {items:[...]}');
-      state.resumes = state.resumes.filter(function (r) { return r.source !== 'bundled'; });
+      state.demoResumes = state.demoResumes.filter(function (r) { return r.source !== 'bundled'; });
       var n = 0;
       j.items.forEach(function (it) {
         if (it && typeof it.text === 'string' && it.text.trim()) {
-          addResume(it.text, it.filename || ('bundled-' + n), 'bundled'); n++;
+          state.demoResumes.push({
+            id: 'bundled-' + n, text: it.text,
+            filename: it.filename || ('bundled-' + n), source: 'bundled'
+          });
+          n++;
         }
       });
-      logFile('内置简历库', '载入 ' + n + ' 份（结构化字段，非简历全文）');
+      logFile('内置简历库', '载入 ' + n + ' 份（结构化字段，非简历全文，不写入本机简历库）');
       recompute();
       return n;
     } catch (e) {
@@ -1375,14 +1651,211 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         }
       });
       logFile('官方 API 代理', '拉取 ' + json.items.length + ' 条，导入 ' + n + ' 份');
-      recompute();
+      await flushIngest();
     } catch (e) {
       logFile('官方 API 代理', '失败：' + e.message + '（检查代理地址与 CORS 头）', true);
     }
   }
 
+  /* ---------- 本机简历库：IndexedDB 优先 → localStorage 降级 → 内存兜底 ---------- */
+  var DB_NAME = 'rs_vault_v1', DB_STORE = 'resumes', LS_KEY = 'rs_vault_v1';
+  var memVault = [];
+
+  function openDB() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) return reject(new Error('IndexedDB 不可用'));
+      var req;
+      try { req = indexedDB.open(DB_NAME, 1); }
+      catch (e) { return reject(e); }
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) {
+          var os = db.createObjectStore(DB_STORE, { keyPath: 'id' });
+          os.createIndex('byKey', 'key', { unique: false });
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('打开数据库失败')); };
+      req.onblocked = function () { reject(new Error('数据库被其他标签页占用')); };
+    });
+  }
+
+  function vaultReadAll() {
+    return openDB().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, 'readonly');
+        var req = tx.objectStore(DB_STORE).getAll();
+        req.onsuccess = function () { resolve(req.result || []); };
+        req.onerror = function () { reject(req.error); };
+        tx.oncomplete = function () { db.close(); };
+        tx.onerror = function () { db.close(); };
+      });
+    });
+  }
+
+  /* file:// 下 IndexedDB 可能既不回调成功也不报错，必须超时降级，否则入库会永久排队 */
+  function withTimeout(p, ms) {
+    return new Promise(function (resolve) {
+      var done = false;
+      var timer = setTimeout(function () { if (!done) { done = true; resolve({ timedOut: true }); } }, ms);
+      Promise.resolve(p).then(function (v) {
+        if (!done) { done = true; clearTimeout(timer); resolve({ value: v }); }
+      }, function (e) {
+        if (!done) { done = true; clearTimeout(timer); resolve({ error: e }); }
+      });
+    });
+  }
+
+  function mirrorToLS(snapshot) {
+    try { localStorage.setItem(LS_KEY, S.serializeBackup(snapshot)); } catch (e) { /* 容量已满，忽略 */ }
+  }
+
+  function vaultSaveAll() {
+    var snapshot = state.vault.slice();
+    function idbWrite() {
+      return openDB().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction(DB_STORE, 'readwrite'), os = tx.objectStore(DB_STORE);
+          os.clear();
+          snapshot.forEach(function (r) { os.put(r); });
+          tx.oncomplete = function () { db.close(); mirrorToLS(snapshot); resolve(true); };
+          tx.onerror = function () { db.close(); reject(tx.error); };
+          tx.onabort = function () { db.close(); reject(tx.error || new Error('事务中止')); };
+        });
+      });
+    }
+    if (state.backend === 'IndexedDB') {
+      return withTimeout(idbWrite(), 2500).then(function (res) {
+        return (res.timedOut || res.error) ? fallbackSave() : true;
+      });
+    }
+    return Promise.resolve(fallbackSave());
+    function fallbackSave() {
+      try {
+        localStorage.setItem(LS_KEY, S.serializeBackup(snapshot));
+        state.backend = 'localStorage';
+      } catch (e) {
+        memVault = snapshot; state.backend = '内存（仅本次会话）';
+      }
+      return true;
+    }
+  }
+
+  function coerceRecord(r) {
+    var rec = S.makeRecord(r);
+    if (!rec.key) rec.key = S.keyOf({
+      text: rec.text, filename: rec.filename, phone: rec.contact.phone,
+      email: rec.contact.email, name: rec.contact.name,
+      eduName: rec.contact.eduName, years: rec.contact.years
+    });
+    return rec;
+  }
+
+  function vaultLoad() {
+    var lsRecords = [];
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      var p = raw ? S.parseBackup(raw) : null;
+      if (p && p.ok) lsRecords = p.records;
+    } catch (e) { /* 忽略 */ }
+    function fallback() {
+      state.vault = lsRecords.length ? lsRecords : memVault.slice();
+      state.backend = lsRecords.length ? 'localStorage' : '内存（仅本次会话）';
+    }
+    return withTimeout(vaultReadAll(), 2500).then(function (res) {
+      if (res.timedOut || res.error) { fallback(); return null; }
+      var list = res.value || [];
+      state.backend = 'IndexedDB';
+      state.vault = list.map(coerceRecord);
+      /* IDB 可读但为空、LS 有镜像（上次写入曾降级）→ 以镜像为准并回灌 */
+      if (!state.vault.length && lsRecords.length) {
+        state.vault = lsRecords;
+        return vaultSaveAll();
+      }
+      return null;
+    });
+  }
+
+  function findRec(id) {
+    for (var i = 0; i < state.vault.length; i++) if (state.vault[i].id === id) return state.vault[i];
+    return null;
+  }
+
+  /* ---------- 入库：抽取画像 → 去重键 → 增量合并 → 落库 → 重算 ---------- */
+  function contactOf(text, filename, source) {
+    var p = E.buildProfile(E.parseResumeText(text, { filename: filename, source: source }));
+    return { name: p.name, phone: p.phone, email: p.email, years: p.years, eduName: p.eduName };
+  }
+
   function addResume(text, filename, source) {
-    state.resumes.push({ id: 'r' + state.resumes.length + '-' + Date.now(), filename: filename, text: text, source: source || 'local' });
+    pending.push({ text: text, filename: filename, source: source || 'local' });
+  }
+
+  function ingest(items) {
+    return vaultReady.then(function () { return ingestNow(items); });
+  }
+
+  function ingestNow(items) {
+    var cleaned = items.map(function (it) {
+      var text = S.cleanText(it.text);
+      var ct = contactOf(text, it.filename, it.source);
+      return {
+        text: text, filename: it.filename, source: it.source, contact: ct,
+        key: S.keyOf({
+          text: text, filename: it.filename, phone: ct.phone, email: ct.email,
+          name: ct.name, eduName: ct.eduName, years: ct.years
+        })
+      };
+    });
+    var r = S.mergeRecords(state.vault, cleaned);
+    state.vault = r.records;
+    state.blocked += r.skipped.filter(function (s) { return s.reason.indexOf('重复') >= 0; }).length;
+    return vaultSaveAll().then(function () {
+      recompute(); renderVault();
+      var msg = '入库 ' + r.added.length + ' 份';
+      if (r.skipped.length) msg += '，跳过 ' + r.skipped.length + ' 份';
+      if (r.merged.length) msg += '，更新 ' + r.merged.length + ' 份';
+      logFile('简历库', msg, !r.added.length && !!r.skipped.length);
+      r.skipped.slice(0, 3).forEach(function (s) { logFile('↳ ' + s.filename, s.reason, true); });
+      return r;
+    });
+  }
+
+  function flushIngest() {
+    var items = pending.slice(); pending = [];
+    if (!items.length) { recompute(); return Promise.resolve(); }
+    return ingest(items);
+  }
+
+  /* ---------- 简历库面板 ---------- */
+  function renderVault() {
+    if (!$('vaultStat')) return;
+    var st = S.vaultStats(state.vault);
+    $('vaultStat').textContent = '库中 ' + st.total + ' 份 · 本月新增 ' + st.thisMonth +
+      ' 份 · 已拦截重复 ' + state.blocked + ' 份 · 存储：' + (state.backend || '初始化中');
+    var list = state.vault.filter(function (r) {
+      return !state.vaultFilter || r.status === state.vaultFilter;
+    }).slice().reverse();
+    if (!list.length) {
+      $('vaultList').innerHTML = '<div class="hint" style="padding:8px">' +
+        (state.vault.length ? '该状态下暂无简历' : '简历库为空。粘贴聊天里的简历，或拖入官方导出的 ZIP，即自动入库。') + '</div>';
+      return;
+    }
+    $('vaultList').innerHTML = list.map(function (r) {
+      var opts = S.STATUSES.map(function (s) {
+        return '<option value="' + esc(s) + '"' + (r.status === s ? ' selected' : '') + '>' + esc(s) + '</option>';
+      }).join('');
+      var when = String(r.addedAt || '').slice(0, 16).replace('T', ' ');
+      var src = r.source === 'zip' ? '官方导出 ZIP' : r.source === 'chat' ? '聊天粘贴' :
+        r.source === 'paste' ? '粘贴导入' : r.source === 'bosshi' ? '官方 API' : '本地文件';
+      return '<div class="vrow">' +
+        '<div class="vtop"><span class="vname">' + esc(r.contact.name || r.filename) + '</span>' +
+        '<span class="vsrc">' + esc(src) + ' · ' + esc(when) + '</span>' +
+        '<button class="vdel" data-vdel="' + esc(r.id) + '" title="从库中移除">×</button></div>' +
+        '<div class="vbot"><select data-vstatus="' + esc(r.id) + '">' + opts + '</select>' +
+        '<input data-vnote="' + esc(r.id) + '" value="' + esc(r.note) + '" placeholder="备注（沟通结论等）"></div>' +
+        '</div>';
+    }).join('');
   }
 
   async function handleFiles(fileList) {
@@ -1408,7 +1881,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         }
       } catch (e) { logFile(f.name, '失败：' + e.message, true); }
     }
-    recompute();
+    await flushIngest();
   }
 
   /* ---------- JD 与规则 ---------- */
@@ -1478,7 +1951,8 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
   /* ---------- 计算与渲染 ---------- */
   function recompute() {
     if (!state.jd) state.jd = { title: '', rawText: '', rules: [], warnings: [] };
-    state.profiles = state.resumes.map(function (r) {
+    var all = state.vault.concat(state.demoResumes);
+    state.profiles = all.map(function (r) {
       return E.buildProfile(E.parseResumeText(r.text, { filename: r.filename, source: r.source, id: r.id }), { skillDict: E.SKILL_DICT });
     });
     state.out = E.scoreAll(state.profiles, state.jd);
@@ -1533,6 +2007,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         ' —— 简历未写明 ≠ 不具备，请人工确认后再决定是否淘汰。</div>' : '';
     var dup = r.duplicateOf ? '<div class="dupbox">疑似重复简历（与 ' + esc(r.duplicateOf) + ' 手机号/邮箱/姓名一致），已排在末尾。</div>' : '';
     var knock = r.knocked ? '<div class="mustbox"><b>一票否决</b>：' + esc(r.knockReason) + '</div>' : '';
+    var note = r.note ? '<div class="vnote">备注：' + esc(r.note) + '</div>' : '';
     var follow = (r.followups || []).length
       ? '<details class="sec" open><summary>面试追问清单（' + r.followups.length + ' 条） <button class="btn sm" data-follow="' + idx + '">复制</button></summary>' +
         '<ul class="follow">' + r.followups.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></details>' : '';
@@ -1541,10 +2016,12 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       '<div class="rhead"><div class="rank">' + (idx + 1) + '</div>' +
       '<div class="who"><div class="nm">' + esc(r.name || '姓名未识别') +
       ' <span class="badge b-' + esc(r.grade) + '">' + esc(r.grade) + '</span></div>' +
-      '<div class="fn">' + esc(r.filename) + ' · ' + esc(r.source === 'bosshi' ? '官方 API 代理' : r.source === 'demo' ? '演示数据' : r.source === 'zip' ? '官方导出 ZIP' : r.source === 'bundled' ? '内置简历库' : '本地文件') +
+      '<div class="fn">' + esc(r.filename) + ' · ' + esc(r.source === 'bosshi' ? '官方 API 代理' : r.source === 'demo' ? '演示数据' : r.source === 'zip' ? '官方导出 ZIP' : r.source === 'chat' ? '聊天粘贴' : r.source === 'bundled' ? '内置简历库' : '本地文件') +
+      (r.status ? ' · <span class="vchip">' + esc(r.status) + '</span>' : '') +
+      (r.addedAt ? ' · 入库 ' + esc(String(r.addedAt).slice(0, 10)) : '') +
       (r.confidence < 100 ? ' · 置信度 ' + r.confidence + '%' : '') + '</div></div>' +
       '<div class="score"><div class="v">' + (r.score == null ? '—' : r.score) + '</div><div class="c">匹配分 / 100</div></div></div>' +
-      knock + must + dup +
+      knock + must + dup + note +
       '<div class="dims">' + (dims || '<span class="hint">无可用维度</span>') + '</div>' +
       '<div class="chips">' + chips.join('') + '</div>' +
       '<details class="sec"><summary>命中 ' + (r.hits || []).length + ' 项</summary>' + evHtml(r.hits, 'full', '无命中项') + '</details>' +
@@ -1554,7 +2031,13 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
   }
 
   function renderResults() {
+    var meta = {};
+    state.vault.forEach(function (r) { meta[r.id] = r; });
     var list = E.applyDesensitize(state.out ? state.out.results : [], state.masked, 1);
+    list.forEach(function (r) {
+      var m = meta[r.id];
+      if (m) { r.status = m.status; r.note = m.note; r.addedAt = m.addedAt; }
+    });
     if (state.grade) list = list.filter(function (r) { return r.grade === state.grade; });
     if (state.search) {
       var q = state.search.toLowerCase();
@@ -1589,7 +2072,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
   }
 
   function loadDemo() {
-    state.resumes = DEMO.RESUMES.map(function (r, i) {
+    state.demoResumes = DEMO.RESUMES.map(function (r, i) {
       return { id: 'demo' + i, filename: r.filename, text: r.text, source: 'demo' };
     });
     if (!$('jdText').value.trim()) $('jdText').value = DEMO.JD_TEMPLATES[0].text;
@@ -1597,14 +2080,15 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     state.demoLoaded = true;
     $('demoNotice').textContent = DEMO.NOTICE;
     saveJD(); renderRules(); renderWarnings(); recompute();
-    logFile('演示数据', DEMO.RESUMES.length + ' 份（虚构）');
+    logFile('演示数据', DEMO.RESUMES.length + ' 份（虚构，仅临时预览，不写入简历库）');
   }
 
   function clearResumes() {
-    state.resumes = []; state.out = null; state.viewList = [];
-    state.demoLoaded = false; fileLogs = [];
+    state.demoResumes = []; state.out = null; state.viewList = [];
+    state.demoLoaded = false; fileLogs = []; pending = [];
     $('fileList').innerHTML = ''; $('demoNotice').textContent = '';
-    recompute();
+    recompute(); renderVault();
+    logFile('本次会话', '已清除演示与临时导入；简历库保留 ' + state.vault.length + ' 份');
   }
 
   function exportJSON() {
@@ -1618,6 +2102,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       results: E.applyDesensitize(state.out.results, state.masked, 1).map(function (r, i) {
         return {
           rank: i + 1, name: r.name, filename: r.filename, score: r.score, grade: r.grade,
+          status: r.status || '', note: r.note || '', addedAt: r.addedAt || '',
           confidence: r.confidence, knocked: r.knocked, knockReason: r.knockReason,
           years: r.years, eduName: r.eduName, skillNames: r.skillNames, certNames: r.certNames,
           hits: r.hits, gaps: r.gaps, unverified: r.unverified,
@@ -1646,7 +2131,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     ta.remove();
   }
 
-  function init() {
+  async function init() {
     var saved = null;
     try { saved = localStorage.getItem('rs_theme'); } catch (e) { }
     var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1657,7 +2142,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       $('jdTemplate').appendChild(o);
     });
     if (!restoreJD()) renderWarnings();
-    renderRules(); render();
+    renderRules(); renderVault(); recompute();
 
     $('jdTemplate').addEventListener('change', function () {
       var i = this.value; if (i === '') return;
@@ -1701,11 +2186,96 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     $('btnPaste').addEventListener('click', function () {
       var txt = $('pasteText').value;
       if (!txt.trim()) return;
-      var parts = txt.split(/^\s*-{3,}\s*$/m).map(function (s) { return s.trim(); }).filter(Boolean);
-      parts.forEach(function (p, i) { addResume(p, '粘贴-' + (i + 1) + '.txt', 'paste'); });
-      logFile('粘贴导入', parts.length + ' 份');
+      var parts = S.splitResumes(txt);
+      parts.forEach(function (p, i) { addResume(p.text, '粘贴-' + (i + 1) + '.txt', 'paste'); });
+      logFile('粘贴导入', '解析 ' + parts.length + ' 份，正在入库…');
       $('pasteText').value = '';
-      recompute();
+      flushIngest();
+    });
+
+    /* 快速入库：从聊天窗口复制简历 → Ctrl+V 即自动解析、去重、打分、入库 */
+    function quickIngest() {
+      var txt = $('quickPaste').value;
+      if (!txt.trim()) { $('quickMsg').textContent = '请先粘贴简历文本'; return; }
+      var parts = S.splitResumes(txt);
+      var items = parts.map(function (p, i) {
+        return {
+          text: p.text,
+          filename: '聊天简历-' + (i + 1) + '-' + new Date().toISOString().slice(0, 10) + '.txt',
+          source: 'chat'
+        };
+      });
+      $('quickPaste').value = '';
+      $('quickMsg').textContent = '正在解析 ' + items.length + ' 份…';
+      ingest(items).then(function (r) {
+        $('quickMsg').textContent = '已入库 ' + r.added.length + ' 份' +
+          (r.skipped.length ? '，跳过重复 / 空 ' + r.skipped.length + ' 份' : '') +
+          ' · 右侧已自动重新打分';
+      }).catch(function (e) { $('quickMsg').textContent = '入库失败：' + e.message; });
+    }
+    $('btnQuick').addEventListener('click', quickIngest);
+    $('quickPaste').addEventListener('paste', function () {
+      setTimeout(function () { if ($('quickPaste').value.trim()) quickIngest(); }, 0);
+    });
+
+    /* 简历库面板：状态 / 备注 / 删除 / 筛选 / 备份 / 清空 */
+    $('vaultList').addEventListener('change', function (e) {
+      var id = e.target.getAttribute('data-vstatus');
+      if (!id) return;
+      var rec = findRec(id); if (!rec) return;
+      rec.status = e.target.value;
+      vaultSaveAll();
+      /* 仅在按状态筛选时才重排列表；否则会销毁备注输入框，导致紧接着的输入写不进库 */
+      if (state.vaultFilter) renderVault();
+      renderResults();
+    });
+    $('vaultList').addEventListener('input', function (e) {
+      var id = e.target.getAttribute('data-vnote');
+      if (!id) return;
+      var rec = findRec(id); if (!rec) return;
+      rec.note = e.target.value.slice(0, 500); vaultSaveAll(); renderResults();
+    });
+    $('vaultList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-vdel]'); if (!b) return;
+      var id = b.getAttribute('data-vdel');
+      state.vault = state.vault.filter(function (r) { return r.id !== id; });
+      vaultSaveAll().then(function () { recompute(); renderVault(); logFile('简历库', '已移除 1 份'); });
+    });
+    $('vaultFilter').addEventListener('change', function () { state.vaultFilter = this.value; renderVault(); });
+    $('btnVaultExport').addEventListener('click', function () {
+      if (!state.vault.length) { alert('简历库为空，暂无可备份内容。'); return; }
+      dl(S.serializeBackup(state.vault, { from: '简历能力筛选看板' }),
+        '简历库备份_' + new Date().toISOString().slice(0, 10) + '.json',
+        'application/json;charset=utf-8');
+      logFile('简历库', '已导出备份 ' + state.vault.length + ' 份');
+    });
+    $('vaultImport').addEventListener('change', function () {
+      var f = this.files && this.files[0]; this.value = '';
+      if (!f) return;
+      readTextSmart(f).then(function (txt) {
+        var p = S.parseBackup(txt);
+        if (!p.ok) { logFile('备份导入', '失败：' + p.error, true); return; }
+        var r = S.mergeRecords(state.vault, p.records.map(function (x) {
+          return {
+            id: x.id, text: x.text, filename: x.filename, source: x.source, key: x.key,
+            contact: x.contact, status: x.status, note: x.note, addedAt: x.addedAt
+          };
+        }));
+        state.vault = r.records;
+        return vaultSaveAll().then(function () {
+          recompute(); renderVault();
+          logFile('备份导入', '恢复 ' + r.added.length + ' 份，跳过重复 ' + r.skipped.length + ' 份' +
+            (p.warnings.length ? '，' + p.warnings.length + ' 条告警' : ''));
+          p.warnings.slice(0, 3).forEach(function (w) { logFile('↳ 备份', w, true); });
+        });
+      }).catch(function (e) { logFile('备份导入', '失败：' + e.message, true); });
+    });
+    $('btnVaultClear').addEventListener('click', function () {
+      if (!state.vault.length) return;
+      if (!confirm('确认清空简历库？将移除库中全部 ' + state.vault.length +
+        ' 份简历，不可恢复。建议先点「导出备份」。')) return;
+      state.vault = [];
+      vaultSaveAll().then(function () { recompute(); renderVault(); logFile('简历库', '已清空'); });
     });
 
     document.querySelectorAll('.tabs button').forEach(function (b) {
@@ -1738,6 +2308,13 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     $('results').addEventListener('click', function (e) {
       var b = e.target.closest('[data-follow]'); if (b) copyFollow(+b.getAttribute('data-follow'), b);
     });
+
+    /* 启动恢复：串行化到 vaultReady，避免与用户抢先入库产生竞态 */
+    vaultReady = vaultLoad().then(function () {
+      renderVault(); recompute();
+      if (state.vault.length) logFile('简历库', '已从本机恢复 ' + state.vault.length + ' 份');
+    });
+    await vaultReady;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
