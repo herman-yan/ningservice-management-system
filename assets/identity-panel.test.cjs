@@ -104,16 +104,15 @@ ok(AFG.isRealName('x'.repeat(20)) === false, '超长串被过滤');
 var wn = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'work-order', 'data_wn.json'), 'utf8'));
 var nw = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'work-order', 'data_nw.json'), 'utf8'));
 var names = AFG.collectNames([wn, nw]);
-ok(names.length >= 25, '真实台账提取到 ≥25 人（实得 ' + names.length + '）');
+// 底账已于 2026-11-19 换为「派工内控表-新.xlsx」
+ok(names.length >= 20, '真实台账提取到 ≥20 人（实得 ' + names.length + '）');
 ok(names.indexOf('终止') < 0, '名单不含「终止」');
 ok(names.indexOf('430.17') < 0, '名单不含「430.17」');
 ok(names.indexOf('无') < 0, '名单不含「无」');
-ok(names.indexOf('刘珍') >= 0, '名单含「刘珍」（已去全角空格）');
 ok(names.indexOf('刘　珍') < 0, '名单不含带全角空格的重复项');
-ok(names.indexOf('张峻') >= 0 && names.indexOf('苏越') >= 0 && names.indexOf('马迪') >= 0, '名单含张峻/苏越/马迪');
-ok(names.indexOf('赵轩') >= 0, '名单含报单员「赵轩」');
-ok(names.indexOf('刘利伟') >= 0 && names.indexOf('曾悦') >= 0, '名单含责任外服「刘利伟/曾悦」');
-ok(names.indexOf('周字欢') >= 0, '名单含报单员「周字欢」');
+ok(names.indexOf('刘星彤') >= 0 && names.indexOf('苏越') >= 0 && names.indexOf('杨国志') >= 0, '名单含班组长刘星彤/苏越/杨国志');
+ok(names.indexOf('刘利伟') >= 0 && names.indexOf('曾悦') >= 0, '名单含报修来源「刘利伟/曾悦」');
+ok(names.indexOf('乔童') >= 0 && names.indexOf('段宇航') >= 0, '名单含乔童/段宇航');
 // 去重：不应有归一化后重复的项
 var normed = names.map(AFG.normName);
 ok(normed.length === new Set(normed).size, '名单无归一化重复项');
@@ -131,7 +130,7 @@ ok(book.hidden.indexOf('罗永豪') >= 0, '手动隐藏已持久化（存归一�
 var roster = AFG.nameRoster([wn, nw], st);
 ok(roster.indexOf('新同事甲') >= 0, '最终名单含手动补充');
 ok(roster.indexOf('罗永豪') < 0, '最终名单排除手动隐藏');
-ok(roster.indexOf('刘珍') >= 0, '最终名单保留其他人');
+ok(roster.indexOf('刘星彤') >= 0, '最终名单保留其他人');
 ok(AFG.nameRoster([wn, nw], st).length === roster.length, '重复调用结果稳定');
 
 // 补充非法姓名应被拒

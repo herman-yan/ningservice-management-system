@@ -205,7 +205,7 @@ ok(pv.indexOf('平均维修') >= 0, '含平均维修时长');
 ok(pv.indexOf('undefined') < 0, '人效视图无 undefined');
 ok(pv.indexOf('NaN') < 0, '人效视图无 NaN');
 var pRows = (pv.match(/<tr/g) || []).length;
-ok(pRows > 10, '工程师行数 > 10（实际 ' + pRows + '）');
+ok(pRows > 5, '工程师行数 > 5（实际 ' + pRows + '，新台账人员更少）');
 
 // ---------- 周报导出 ----------
 sec('周报 Excel 导出');
@@ -339,11 +339,12 @@ vm.runInContext('window.afSwitchIdentity("管理员","ADMIN")', ctx);
 ok(els.view.innerHTML.indexOf('核心运营数据（15 项）') >= 0, '切回管理员恢复报表');
 
 sec('边界：空数据渲染');
-store['station_mgmt_data'] = JSON.stringify({ warrantyOrders: [], nonWarrantyOrders: [] });
-// 重新 boot：直接调用 loadRemote 会走网络失败路径，改为验证 renderEmpty 分支
+store['station_mgmt_data'] = JSON.stringify({ warrantyOrders: [], nonWarrantyOrders: [], dataVersion: 'kz-20261119-v1' });
+// 新版本：本机空账时 boot 会先自动拉取站点台账（拉力图状态栏），不再停留在静态空页
 vm.runInContext('window.boot()', ctx);
 ok(els.view.innerHTML.indexOf('尚无工单数据') >= 0, '空数据展示引导页');
-ok(els.view.innerHTML.indexOf('导入工单台账') >= 0, '引导页含导入入口');
+ok(ctx.document.getElementById('uploadBar') && ctx.document.getElementById('uploadBar').innerHTML.indexOf('拉取') >= 0,
+  '空账自动触发从站点拉取');
 
 console.log('\n' + '='.repeat(52));
 console.log('通过 ' + pass + ' 项，失败 ' + fail + ' 项');

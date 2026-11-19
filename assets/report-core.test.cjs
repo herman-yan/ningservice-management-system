@@ -247,21 +247,24 @@ sec('真实台账回归（data_wn.json + data_nw.json）');
 var base = path.join(__dirname, '..', 'work-order');
 var wnReal = JSON.parse(fs.readFileSync(path.join(base, 'data_wn.json'), 'utf8'));
 var nwReal = JSON.parse(fs.readFileSync(path.join(base, 'data_nw.json'), 'utf8'));
-eq(wnReal.length, 1018, '保内真实条数 1018');
-eq(nwReal.length, 400, '保外真实条数 400');
+// 底账已于 2026-11-19 换为「派工内控表-新.xlsx」（数据版本 kz-20261119-v1）
+eq(wnReal.length, 73, '保内真实条数 73');
+eq(nwReal.length, 125, '保外真实条数 125');
 var realRecs = RPT.normalizeAll(wnReal, nwReal);
-eq(realRecs.length, 1418, '归一化总数 1418');
+eq(realRecs.length, 198, '归一化总数 198');
 var realIn = realRecs.filter(function (r) { return r.inDate; }).length;
-ok(realIn > 1100, '可解析建单日期 > 1100（实际 ' + realIn + '）');
+ok(realIn > 150, '可解析建单日期 > 150（实际 ' + realIn + '）');
 var realDone = realRecs.filter(function (r) { return RPT.inBucket(r._type, r.status, 'done'); }).length;
-eq(realDone, 890, '竣工态 = 保内(549已竣工+124已结算+44已结清) + 保外(168维修完成+5已关单)');
+eq(realDone, 134, '竣工态 = 保内(已竣工+已结清) + 保外(维修完成+已关单)');
 var realSettled = realRecs.filter(function (r) { return RPT.inBucket(r._type, r.status, 'settled'); }).length;
-eq(realSettled, 173, '已结算态 = 保内124+44 + 保外5');
+eq(realSettled, 89, '已结算态 = 保内已结清 + 保外已关单');
 
-// 保外历史状态「维修中」应归一为「在修」
-var legacyRenamed = realRecs.filter(function (r) { return r._type === 'NW' && r.statusRaw === '维修中'; }).length;
-eq(legacyRenamed, 10, '保外「维修中」10 条已归一到在修');
-ok(realRecs.filter(function (r) { return r._type === 'NW' && r.statusRaw === '维修中' && r.status === '在修'; }).length === 10, '归一结果确为「在修」');
+// 内控表原始状态词以 statusRaw 留痕，归一后全部落入流程内状态
+var legacyRenamed = realRecs.filter(function (r) { return r.raw && r.raw.statusRaw === '已报单'; }).length;
+ok(legacyRenamed > 0, '「已报单」原始状态已留痕（实际 ' + legacyRenamed + '）');
+ok(realRecs.every(function (r) { return RPT.inBucket(r._type, r.status, 'done') ||
+     RPT.inBucket(r._type, r.status, 'active') || RPT.inBucket(r._type, r.status, 'pending') ||
+     RPT.inBucket(r._type, r.status, 'terminated'); }), '全部记录落入已知分桶');
 
 // 全周期产值在合理区间（真实数据 revenue 为 0 的工单较多，只校验非负与有限）
 var realAgg = RPT.aggregate(realRecs, RPT.periodOf('2026-07-04', 'week'), { headcount: 36, engineers: 24 });

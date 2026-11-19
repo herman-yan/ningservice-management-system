@@ -10,13 +10,14 @@ function ok(name, fn) {
 }
 
 ok('候选名单非空且数量合理', () => {
-  assert.ok(names.length > 300, '候选过少: ' + names.length);
+  // 底账已于 2026-11-19 换为派工内控表（地点/客户列，209 个去重值）
+  assert.ok(names.length > 180, '候选过少: ' + names.length);
 });
 ok('无重复客户名', () => {
   assert.strictEqual(new Set(names).size, names.length);
 });
-ok('包含历史高频客户', () => {
-  ['北京奔驰', '北汽越分', '理想来广营', '理想汽车北京来广营汽车城零售中心'].forEach(n => {
+ok('包含内控表高频地点/客户', () => {
+  ['来广营，理想', '理想 来广营', '站内'].forEach(n => {
     assert.ok(names.indexOf(n) >= 0, '缺少 ' + n);
   });
 });
@@ -24,9 +25,9 @@ ok('过滤空值与无意义名称', () => {
   ['', '无', '暂无', '未知', '-', '--'].forEach(n => assert.strictEqual(names.indexOf(n), -1));
   names.forEach(n => assert.ok(String(n).trim().length >= 2, '异常短名称: ' + n));
 });
-ok('按历史出现频次降序', () => {
-  assert.strictEqual(names[0], '北京奔驰');
-  assert.strictEqual(names[1], '北汽越分');
+ok('按内控表出现频次降序', () => {
+  assert.strictEqual(names[0], '现代工厂');
+  assert.strictEqual(names[1], '现代仓库');
 });
 
 const { els, T, get, runError } = loadPage('work-order/index.html', {
@@ -47,7 +48,7 @@ ok('新建保内工单的客户名为下拉点选', () => {
   const html = els.get('modalContent').innerHTML;
   assert.ok(html.indexOf('<select class="form-select" id="f_wn_customerName"') >= 0);
   assert.ok(html.indexOf('f_wn_customerName" value=') < 0, '仍是可手填输入框');
-  assert.ok(html.indexOf('北京奔驰') >= 0, '候选未进入下拉');
+  assert.ok(html.indexOf('来广营，理想') >= 0, '候选未进入下拉');
 });
 ok('新建保外工单的签约客户为下拉点选', () => {
   T.openNonWarrantyForm();

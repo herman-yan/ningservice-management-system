@@ -306,13 +306,16 @@ tbody tr { cursor: pointer; }
 <script>
 // ===== DATA STORE =====
 const STORAGE_KEY = 'station_mgmt_data';
+// 数据版本：更换底账时递增，旧版本会被自动清空并从站点重新拉取（保证所有人看到同一份新数据）
+const DATA_VERSION = 'kz-20261119-v1';
+let DATA_STALE = false;
 
 function getDefaultData() {
   return {
     warrantyOrders: [],   // 保内工单（底层口径保留）
     nonWarrantyOrders: [], // 保外工单（底层口径保留）
     unclassifiedOrders: [], // 导入时无法判定保内/保外的行，等待人工归类
-    engineers: ['刘珍','罗永豪','刘星彤','段宇航','杨国志','张峻','李恩浩','李旭东','周大伟','王子辉','苏越','张高丰','张祥英','马迪','张垚','何旭栋'],
+    engineers: ['刘珍','罗永豪','刘星彤','段宇航','杨国志','张峻','李恩浩','李旭东','周大伟','王子辉','苏越','张高丰','张祥英','马迪','张垚','何旭栋','吴孔亮','王超杰','穆乃平','陈朝辉','赵唯','王效祖'],
     reporters: ['周字欢','刘程程','董慧莹','王鹏','赵轩'],
     warehouseLogs: [],
     idCounters: { wn: 0, nw: 0, wh: 0 }
@@ -340,7 +343,14 @@ function afEnsureNwIds(data) {
 function loadData() {
   try {
     const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (d) return afEnsureNwIds({ ...getDefaultData(), ...d });
+    if (d) {
+      // 版本不一致：本次不使用旧账，等 initApp 从站点拉取新账覆盖
+      if (d.dataVersion && d.dataVersion !== DATA_VERSION) {
+        DATA_STALE = true;
+        return getDefaultData();
+      }
+      return afEnsureNwIds({ ...getDefaultData(), ...d });
+    }
   } catch(e) {}
   return getDefaultData();
 }
@@ -974,6 +984,7 @@ function renderAllOrders() {
         <button class="btn btn-outline" onclick="openWarrantyForm()">+ 新建保内</button>
         <button class="btn btn-outline" onclick="openNonWarrantyForm()">+ 新建保外</button>
         <button class="btn btn-outline" onclick="sendPendingDigest(true)">🔔 推送待跟进提醒</button>
+        <button class="btn btn-outline" onclick="afReloadSeedData()" title="清空本机数据并重新载入站点台账">⟳ 重新载入台账</button>
       </div>
     </div>
     <div class="card" style="padding:14px 16px;margin-bottom:16px">
@@ -2710,49 +2721,67 @@ function downloadTemplate() {
 
 // ===== INIT =====
 async function initApp() {
-  // Check if localStorage has data
+  // 是否需要从站点拉取（首次 / 版本过期 / 用户手动清空）
   let hasData = false;
   try {
     const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (d && (d.warrantyOrders.length > 0 || d.nonWarrantyOrders.length > 0)) {
+    if (d && d.dataVersion === DATA_VERSION &&
+        ((d.warrantyOrders || []).length > 0 || (d.nonWarrantyOrders || []).length > 0 || (d.unclassifiedOrders || []).length > 0)) {
       hasData = true;
+    } else if (d && (d.warrantyOrders || []).length) {
+      DATA_STALE = true; // 有旧账但版本不同 -> 强制刷新
     }
   } catch(e) {}
-  
-  // If no data, load default from GitHub
-  if (!hasData) {
+
+  // 先用当前数据同步渲染一次，保证首屏立即可见（也兼容无 fetch 的轻量环境）
+  renderIdentityBar();
+  afApplyNavPermission();
+  renderPage();
+
+  if (!hasData || DATA_STALE) {
+    const base = 'https://herman-yan.github.io/ningservice-management-system/work-order/';
     try {
-      console.log('Loading default data from GitHub...');
-      const [wnResp, nwResp] = await Promise.all([
-        fetch('https://herman-yan.github.io/ningservice-management-system/work-order/data_wn.json'),
-        fetch('https://herman-yan.github.io/ningservice-management-system/work-order/data_nw.json')
+      const [wnResp, nwResp, uResp] = await Promise.all([
+        fetch(base + 'data_wn.json'),
+        fetch(base + 'data_nw.json'),
+        fetch(base + 'data_u.json')
       ]);
-      
       if (wnResp.ok && nwResp.ok) {
         const wnData = await wnResp.json();
         const nwData = await nwResp.json();
-        
+        let uData = [];
+        if (uResp.ok) { try { uData = await uResp.json(); } catch (e) { uData = []; } }
+
+        // 版本刷新时整体替换三本台账，账号/会话等其它键不动
         APP.warrantyOrders = wnData;
         APP.nonWarrantyOrders = nwData;
-        
-        // Set idCounters based on loaded data
+        APP.unclassifiedOrders = uData;
+        APP.dataVersion = DATA_VERSION;
         APP.idCounters.wn = wnData.length;
         APP.idCounters.nw = nwData.length;
-
-        // 保外历史数据只有序号、无内部 id，统一补全（幂等）
         afEnsureNwIds(APP);
-        
         saveData(APP);
-        console.log(`Loaded ${wnData.length} warranty + ${nwData.length} non-warranty orders`);
+        DATA_STALE = false;
+        renderIdentityBar();
+        afApplyNavPermission();
+        renderPage();
+        console.log(`[${DATA_VERSION}] 已载入 保内 ${wnData.length} + 保外 ${nwData.length} + 未分类 ${uData.length}`);
       }
     } catch(e) {
       console.error('Failed to load default data:', e);
     }
   }
-  
-  renderIdentityBar();
-  afApplyNavPermission();
-  renderPage();
+}
+
+// 手动清空本机旧账并重新拉取站点台账（顶部按钮调用）
+async function afReloadSeedData() {
+  if (!confirm('将清空本浏览器里的全部工单数据，重新载入站点上的最新台账。账号和权限不受影响。确定继续？')) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  DATA_STALE = true;
+  showUploadStatus('⏳ 正在重新载入站点台账…', 'info');
+  APP = getDefaultData();
+  await initApp();
+  showUploadStatus('✅ 已载入最新台账', 'success');
 }
 
 // ===== 登录门接管启动 =====

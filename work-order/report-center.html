@@ -245,10 +245,15 @@ var CFG = loadConfig();
 var RECORDS = [];
 var RAW = { wn: [], nw: [] };
 
+var DATA_VERSION = 'kz-20261119-v1';
 function loadRaw() {
   try {
     var d = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (d) return { wn: d.warrantyOrders || [], nw: d.nonWarrantyOrders || [] };
+    if (d) {
+      // 版本过期：忽略旧账，交由 boot 自动从站点重拉
+      if (d.dataVersion && d.dataVersion !== DATA_VERSION) return { wn: [], nw: [] };
+      return { wn: d.warrantyOrders || [], nw: d.nonWarrantyOrders || [] };
+    }
   } catch (e) {}
   return { wn: [], nw: [] };
 }
@@ -734,6 +739,7 @@ function persist() {
   d = d || {};
   d.warrantyOrders = RAW.wn;
   d.nonWarrantyOrders = RAW.nw;
+  if (typeof DATA_VERSION !== 'undefined') d.dataVersion = DATA_VERSION;
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch (e) { console.warn(e); }
 }
 
@@ -756,7 +762,7 @@ function loadRemote() {
       done = true;
       RAW.wn = res[0]; RAW.nw = res[1];
       persist(); recompute(); render();
-      setBar('✅ 已拉取默认台账：保内 ' + res[0].length + ' 单、保外 ' + res[1].length + ' 单。', 'success');
+      setBar('✅ 已拉取最新台账：保内 ' + res[0].length + ' 单、保外 ' + res[1].length + ' 单。', 'success');
     }).catch(function () { tryNext(i + 1); });
   }
   tryNext(0);
@@ -886,8 +892,16 @@ function boot() {
   RAW = loadRaw();          // 先取台账，身份栏的姓名名单依赖它
   renderIdentityBar();
   if (!canEnterReport(ME.role)) { renderDenied(); return; }
+  // 版本过期或本机无账时，自动从站点拉取新台账（报表口径只依赖保内/保外两本）
+  var stale = false, dd = null;
+  try { dd = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) {}
+  if (dd && dd.dataVersion && dd.dataVersion !== DATA_VERSION) stale = true;
   recompute();
   render();
+  if (stale || (!RAW.wn.length && !RAW.nw.length)) {
+    loadRemote();
+    return;
+  }
   if (!RECORDS.length) setBar('ℹ️ 报表中心与工单系统共用台账。当前无数据，可导入 Excel 或点下方按钮从站点拉取默认台账。', 'info');
 }
 // ===== 岗位身份栏与访问门控 =====
