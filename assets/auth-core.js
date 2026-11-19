@@ -23,6 +23,14 @@
   var PEPPER = 'ningjia-workshop-2026';   // 固定调味值，抬高直接读哈希的成本
   var DB_VERSION = 1;
 
+  // 开箱即用的默认管理员：全新浏览器（账号库为空）打开站点即可用这些姓名 + 口令
+  // 登录进入管理界面。一旦账号库非空（管理员已开始自行添加同事），本逻辑完全不介入，
+  // 因此不会覆盖任何人改过的口令、角色或停用状态。
+  var SEED_ADMINS = [
+    { name: '赵轩', pwd: '000000' },
+    { name: '刘晓', pwd: '000000' }
+  ];
+
   // 可分配页面（与 work-order 导航 data-page 对齐；'report' 为报表中心）
   var PAGE_IDS = ['dashboard', 'report', 'warranty', 'nonwarranty', 'warehouse', 'engineers', 'export'];
   var PAGE_LABELS = {
@@ -440,6 +448,29 @@
     return { ok: true, account: get(clean) };
   }
 
+  // ===== 预置管理员（开箱即用，仅对全新账号库生效）=====
+  // 用于站点首次交付：账号库为空时，赵轩/刘晓直接成为管理员，口令 000000。
+  // 只要库里已有任意账号就完全不动作，因此不会覆盖已交付后任何人改过的口令、
+  // 角色、停用状态，也不会破坏页面集成测试里预置的账号库。
+  function seedAdmins(defs) {
+    var db = load();
+    if (db.accounts.length > 0) return { ok: true, seeded: false, count: 0, reason: 'has-accounts' };
+
+    var list2 = Array.isArray(defs) && defs.length ? defs : SEED_ADMINS;
+    var created = 0;
+    list2.forEach(function (d) {
+      if (!d || !d.name) return;
+      var nm = String(d.name).replace(/[\s\u3000\u00a0]+/g, '');
+      if (!nm) return;
+      var acc = normalizeAccount({ name: nm, role: 'ADMIN', admin: true, active: true, scope: 'all' });
+      acc.pwd = makeCredential(String(d.pwd || '000000'));
+      db.accounts.push(acc);
+      created++;
+    });
+    if (created) save(db);
+    return { ok: true, seeded: created > 0, created: created, count: created };
+  }
+
   // ===== 名单候选（用于管理员新增账号时挑选）=====
   // 台账提取 ∪ 手动补充 − 手动隐藏，排除已有账号者
   function nameCandidates(groups) {
@@ -488,6 +519,8 @@
     needsBootstrap: needsBootstrap,
     bootstrap: bootstrap,
     emergencyReset: emergencyReset,
+    seedAdmins: seedAdmins,
+    SEED_ADMINS: SEED_ADMINS,
     nameCandidates: nameCandidates
   };
 

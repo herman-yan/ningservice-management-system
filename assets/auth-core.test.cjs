@@ -242,6 +242,28 @@ ok('空姓名账号被读时剔除', A.list().length === 1);
 ok('数据版本号写入为 1', A.load().version === 1);
 ok('规范化补全缺失字段', (() => { reset(); A.bootstrap('刘珍', 'admin2026'); const a = A.get('刘珍'); return a.active === true && !!a.createdAt; })());
 
+// ============================================================
+group('14. 预置管理员（全新账号库开箱即用）');
+reset();
+ok('空库需要初始化', A.needsBootstrap() === true);
+const seeded = A.seedAdmins();
+ok('空库预置成功', seeded.ok === true && seeded.seeded === true);
+ok('预置了两位管理员', A.list().length === 2, JSON.stringify(A.list().map(a => a.name)));
+ok('赵轩为启用管理员且口令 000000', (() => { const a = A.get('赵轩'); return !!a && a.admin === true && a.active === true && a.role === 'ADMIN' && A.verify('赵轩', '000000').ok === true; })());
+ok('刘晓为启用管理员且口令 000000', (() => { const a = A.get('刘晓'); return !!a && a.admin === true && a.active === true && a.role === 'ADMIN' && A.verify('刘晓', '000000').ok === true; })());
+ok('预置后不再需要初始化', A.needsBootstrap() === false);
+ok('预置后赵轩可进全部页面', A.canEnter('赵轩', 'report') === true && A.canEnter('刘晓', 'export') === true);
+ok('账号库不存明文 000000 口令', JSON.stringify(A.list()).indexOf('000000') < 0);
+// 幂等 / 不覆盖：库非空时完全不介入
+A.setPassword('赵轩', 'newpass8888');
+A.add('王鹏', 'REPORTER', { password: 'wang123456' });
+const again = A.seedAdmins();
+ok('已有账号库时预置不介入', again.seeded === false && again.count === 0);
+ok('不覆盖已改口令', A.verify('赵轩', 'newpass8888').ok === true && A.verify('赵轩', '000000').ok === false);
+ok('不重复造账号', A.list().length === 3);
+ok('不覆盖停用/降权', (() => { A.update('刘晓', { admin: false, active: false }); A.seedAdmins(); const a = A.get('刘晓'); return a.admin === false && a.active === false; })());
+ok('自定义名单可用', (() => { reset(); A.seedAdmins([{ name: '测试甲', pwd: 'abcd1234' }]); return A.verify('测试甲', 'abcd1234').ok === true && A.list().length === 1; })());
+
 console.log('\n----------------------------------------');
 console.log('PASS ' + pass + ' / FAIL ' + fail);
 process.exit(fail ? 1 : 0);

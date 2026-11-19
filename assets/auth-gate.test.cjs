@@ -109,7 +109,7 @@ ok('未登录时页面被锁定', E.GATE.isLocked() === true);
 ok('body 带锁定类', E.body.classList.contains('nj-locked') === true);
 ok('登录门渲染了首次启用标题', E.gateHtml().indexOf('首次启用') >= 0, E.gateHtml().slice(0, 120));
 ok('登录门渲染了姓名选项', E.gateHtml().indexOf('刘珍') >= 0);
-ok('未选姓名时提交被拒', (() => { E.setInput('njgBootPwd', 'abcd1234'); E.setInput('njgBootPwd2', 'abcd1234'); E.GATE.doBootstrap(); return E.gateHtml().indexOf('请先选择你的姓名') >= 0; })());
+ok('未选姓名时提交被拒', (() => { E.setInput('njgBootPwd', 'abcd1234'); E.setInput('njgBootPwd2', 'abcd1234'); E.GATE.doBootstrap(); return E.gateHtml().indexOf('请输入或选择你的姓名') >= 0; })());
 E.GATE.pickBoot('刘珍');
 ok('选中姓名后高亮', E.gateHtml().indexOf('njg-chip on') >= 0);
 ok('口令过短被拒', (() => { E.setInput('njgBootPwd', 'abc'); E.setInput('njgBootPwd2', 'abc'); E.GATE.doBootstrap(); return E.gateHtml().indexOf('至少 4 位') >= 0; })());
@@ -141,7 +141,7 @@ ok('可登录名单含技师', pool.indexOf('罗永豪') >= 0);
 ok('未设口令者不在名单', pool.indexOf('马迪') < 0);
 ok('已停用者不在名单', pool.indexOf('离职同事') < 0);
 ok('登录门显示姓名', E.gateHtml().indexOf('罗永豪') >= 0);
-ok('未选姓名提交被拒', (() => { E.setInput('njgLoginPwd', 'x'); E.GATE.submitLogin(); return E.gateHtml().indexOf('请先选择你的姓名') >= 0; })());
+ok('未选姓名提交被拒', (() => { E.setInput('njgLoginPwd', 'x'); E.GATE.submitLogin(); return E.gateHtml().indexOf('请输入或选择你的姓名') >= 0; })());
 E.GATE.pickLogin('罗永豪');
 ok('未输口令被拒', (() => { E.setInput('njgLoginPwd', ''); E.GATE.submitLogin(); return E.gateHtml().indexOf('请输入登录口令') >= 0; })());
 ok('错误口令被拒', (() => { E.setInput('njgLoginPwd', 'wrongpwd'); E.GATE.submitLogin(); return E.GATE.isLocked() === true && E.gateHtml().indexOf('口令不正确') >= 0; })());
@@ -525,6 +525,47 @@ ok('IDP.locked() 反映开关', E.IDP.locked() === false);
 
 E.IDP.setIdentity('罗永豪', 'TECHNICIAN');
 ok('setIdentity 同步折叠条', E.barHtml().indexOf('罗永豪') >= 0);
+
+// ============================================================
+group('13. 手动输入姓名（不再只能点选）');
+// 首次启用页：直接手输姓名即可 bootstrap
+E = makeEnv();
+E.GATE.init({ pageName: '工单系统', getNames: () => ['刘珍', '罗永豪'] });
+E.GATE.start();
+ok('首次启用页含姓名输入框', E.gateHtml().indexOf('njgBootName') >= 0);
+ok('首次启用页同时保留候选 chip', E.gateHtml().indexOf('njg-chip') >= 0);
+ok('姓名框提示可手输', E.gateHtml().indexOf('输入你的姓名') >= 0);
+// 手输orphan姓名：typeBoot 写入状态，不受名单限制
+E.GATE.typeBoot('赵轩');
+ok('手输姓名写入 boot.typed', E.GATE.__probe.state().boot.typed === '赵轩');
+// 走真实手输路径：typeBoot 输入姓名 + 提交
+E = makeEnv();
+E.GATE.init({ pageName: '工单系统', getNames: () => ['刘珍', '罗永豪'] });
+E.GATE.start();
+E.GATE.typeBoot('赵轩');
+E.setInput('njgBootPwd', '000000'); E.setInput('njgBootPwd2', '000000');
+E.GATE.doBootstrap();
+ok('手输姓名可完成首次启用', E.GATE.isLocked() === false && E.GATE.current().name === '赵轩');
+ok('手输姓名者为管理员', E.AUTH.isAdmin('赵轩') === true && E.GATE.isAdmin() === true);
+// 点选 chip 会清空上一次的手输值（互不串味）
+E.GATE.logout();
+E.GATE.typeLogin('赵轩');
+E.GATE.pickLogin('刘珍');
+ok('点选 chip 清空手输 typed', E.GATE.__probe.state().login.typed === '');
+// 登录页：手输已存在账号名 + 口令可登录
+E = makeEnv();
+E.AUTH.add('刘晓', 'ADMIN', { admin: true, password: 'xiaoli000' });
+E.GATE.init({ pageName: '工单系统', getNames: () => ['刘晓'] });
+E.GATE.start();
+ok('登录页含姓名输入框', E.gateHtml().indexOf('njgLoginName') >= 0);
+E.GATE.typeLogin('刘晓');
+E.setInput('njgLoginPwd', 'wrong');
+E.GATE.submitLogin();
+ok('手输姓名登录：错误口令不放行', E.GATE.isLocked() === true && E.gateHtml().indexOf('口令不正确') >= 0);
+E.setInput('njgLoginPwd', 'xiaoli000');
+E.GATE.submitLogin();
+ok('手输姓名可登录', E.GATE.isLocked() === false && E.GATE.current().name === '刘晓');
+ok('手输姓名登录者为管理员', E.GATE.isAdmin() === true);
 
 console.log('\n----------------------------------------');
 console.log('PASS ' + pass + ' / FAIL ' + fail);

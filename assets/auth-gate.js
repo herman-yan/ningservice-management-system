@@ -69,6 +69,7 @@
     '.njg-input { width: 100%; padding: 11px 13px; font-size: 14.5px; color: #1F2A3A; background: #F8FAFD;',
       'border: 1px solid #DCE2EC; border-radius: 10px; outline: none; letter-spacing: 1px; box-sizing: border-box; }',
     '.njg-input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.13); background: #fff; }',
+    '.njg-name { letter-spacing: 0; margin-bottom: 9px; }',
     '.njg-btn { width: 100%; margin-top: 12px; padding: 12px; border: 0; border-radius: 11px; cursor: pointer;',
       'background: linear-gradient(135deg, #1E4A7A, #0E2A47); color: #fff; font-size: 15px; font-weight: 600;',
       'letter-spacing: 1px; transition: filter .15s, transform .1s; }',
@@ -178,8 +179,8 @@
   };
 
   var mode = 'login';                                  // 'login' | 'bootstrap'
-  var login = { q: '', picked: '', err: '' };
-  var boot = { q: '', picked: '', err: '' };
+  var login = { q: '', picked: '', typed: '', err: '' };
+  var boot = { q: '', picked: '', typed: '', err: '' };
   var rescue = { open: false, name: '', err: '', ok: '' };
 
   var panel = {
@@ -223,12 +224,22 @@
     var list = pool.filter(function (n) { return !q || n.indexOf(q) >= 0; });
     if (!list.length) {
       return '<div class="njg-empty">' +
-        (pool.length ? '没有匹配「' + esc(q) + '」的姓名' : '暂无可登录账号，请联系管理员开通') +
+        (pool.length ? '名单里没有「' + esc(q) + '」，可直接在上方输入这个姓名' : '名单为空，可直接在上方输入姓名') +
         '</div>';
     }
     return list.map(function (n) {
       return '<span class="njg-chip' + (n === picked ? ' on' : '') + '" onclick="NJ_GATE.' + fnName + '(\'' + jsArg(n) + '\')">' + esc(n) + '</span>';
     }).join('');
+  }
+
+  // 姓名输入区：既可手动输入（输入值即选中姓名），也可点选下方候选 chip。
+  // typed 为手输姓名；picked 为点选姓名。二者互斥，后操作者生效。
+  function nameFieldHtml(id, typed, picked, q, chipsFn, typeFn) {
+    var val = typed || picked || '';
+    return '<input class="njg-input njg-name" id="' + id + '" placeholder="输入你的姓名（也可点选下方名单）"' +
+      ' value="' + esc(val) + '" oninput="NJ_GATE.' + typeFn + '(this.value)"' +
+      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();NJ_GATE.focusPwd();}">' +
+      '<div class="njg-chips">' + chipsFn + '</div>';
   }
 
   // 可登录者：启用中 且 已设口令
@@ -248,9 +259,8 @@
       '<div class="njg-mark">🔒</div>' +
       '<div class="njg-title">' + esc(opts.pageName || '宁家服务数字化运营系统') + '</div>' +
       '<div class="njg-sub">请选择你的姓名，并输入本人登录口令</div>' +
-      '<div class="njg-label"><span class="njg-step">1</span>选择姓名</div>' +
-      (pool.length > 8 ? '<input class="njg-search" id="njgLoginQ" placeholder="🔍 输入姓名快速筛选…" value="' + esc(login.q) + '" oninput="NJ_GATE.filterLogin(this.value)">' : '') +
-      '<div class="njg-chips">' + chipList(pool, login.picked, login.q, 'pickLogin') + '</div>' +
+      '<div class="njg-label"><span class="njg-step">1</span>输入或选择姓名</div>' +
+      nameFieldHtml('njgLoginName', login.typed, login.picked, login.q, chipList(pool, login.picked, '', 'pickLogin'), 'typeLogin') +
       '<div class="njg-label"><span class="njg-step">2</span>输入口令</div>' +
       '<input class="njg-input" id="njgLoginPwd" type="password" placeholder="登录口令" autocomplete="current-password" aria-label="登录口令"' +
         ' onkeydown="if(event.key===\'Enter\'){NJ_GATE.submitLogin();}">' +
@@ -283,9 +293,8 @@
       '<div class="njg-mark">🛠️</div>' +
       '<div class="njg-title">首次启用 · 设定管理员</div>' +
       '<div class="njg-sub">系统还没有可用的管理员账号<br>请先设定一名管理员，之后由他/她为同事分配权限</div>' +
-      '<div class="njg-label"><span class="njg-step">1</span>选择你的姓名</div>' +
-      (pool.length > 8 ? '<input class="njg-search" id="njgBootQ" placeholder="🔍 输入姓名快速筛选…" value="' + esc(boot.q) + '" oninput="NJ_GATE.filterBoot(this.value)">' : '') +
-      '<div class="njg-chips">' + chipList(pool, boot.picked, boot.q, 'pickBoot') + '</div>' +
+      '<div class="njg-label"><span class="njg-step">1</span>输入或选择你的姓名</div>' +
+      nameFieldHtml('njgBootName', boot.typed, boot.picked, boot.q, chipList(pool, boot.picked, '', 'pickBoot'), 'typeBoot') +
       '<div class="njg-label"><span class="njg-step">2</span>设定登录口令</div>' +
       '<input class="njg-input" id="njgBootPwd" type="password" placeholder="登录口令（至少 4 位）">' +
       '<input class="njg-input" id="njgBootPwd2" type="password" placeholder="再输入一次确认" style="margin-top:8px"' +
@@ -303,15 +312,15 @@
     el.innerHTML = gateHtml();
     try {
       if (mode === 'bootstrap') {
-        var bq = doc.getElementById('njgBootQ');
+        var bn = doc.getElementById('njgBootName');
         var bp = doc.getElementById('njgBootPwd');
-        if (boot.picked && bp && bp.focus) bp.focus();
-        else if (bq && bq.focus) bq.focus();
+        if ((boot.picked || boot.typed) && bp && bp.focus) bp.focus();
+        else if (bn && bn.focus) bn.focus();
       } else {
-        var q = doc.getElementById('njgLoginQ');
-        var p = doc.getElementById('njgLoginPwd');
-        if (login.picked && p && p.focus) p.focus();
-        else if (q && q.focus) q.focus();
+        var ln = doc.getElementById('njgLoginName');
+        var lp = doc.getElementById('njgLoginPwd');
+        if ((login.picked || login.typed) && lp && lp.focus) lp.focus();
+        else if (ln && ln.focus) ln.focus();
       }
     } catch (e) {}
   }
@@ -333,15 +342,33 @@
     return '口令不正确，请重新输入';
   }
 
+  // 生效姓名：手动输入优先，其次点选 chip。写回 picked 便于后续流程统一取用。
+  // 同时兜底读取输入框 DOM 值——测试通过 setInput 直接设值而不触发 oninput。
+  function currentLoginName() {
+    var inp = doc.getElementById('njgLoginName');
+    var domVal = inp ? String(inp.value || '').trim() : '';
+    if (domVal) login.typed = domVal;
+    if (login.typed) login.picked = login.typed;
+    return login.picked;
+  }
+  function currentBootName() {
+    var inp = doc.getElementById('njgBootName');
+    var domVal = inp ? String(inp.value || '').trim() : '';
+    if (domVal) boot.typed = domVal;
+    if (boot.typed) boot.picked = boot.typed;
+    return boot.picked;
+  }
+
   function submitLogin() {
-    if (!login.picked) { login.err = '请先选择你的姓名'; renderGate(); return; }
+    var name = currentLoginName();
+    if (!name) { login.err = '请输入或选择你的姓名'; renderGate(); return; }
     var inp = doc.getElementById('njgLoginPwd');
     var pwd = inp ? String(inp.value || '') : '';
     if (!pwd) { login.err = '请输入登录口令'; renderGate(); return; }
-    var r = AUTH.verify(login.picked, pwd);
+    var r = AUTH.verify(name, pwd);
     if (!r.ok) { login.err = reasonMsg(r.reason); renderGate(); return; }
     login.err = '';
-    enter(login.picked);
+    enter(name);
   }
 
   function enter(name) {
@@ -358,13 +385,14 @@
     var p2 = doc.getElementById('njgBootPwd2');
     var v1 = p1 ? String(p1.value || '') : '';
     var v2 = p2 ? String(p2.value || '') : '';
-    if (!boot.picked) { boot.err = '请先选择你的姓名'; renderGate(); return; }
+    var name = currentBootName();
+    if (!name) { boot.err = '请输入或选择你的姓名'; renderGate(); return; }
     if (v1.length < 4) { boot.err = '口令至少 4 位'; renderGate(); return; }
     if (v1 !== v2) { boot.err = '两次输入的口令不一致'; renderGate(); return; }
-    var r = AUTH.bootstrap(boot.picked, v1);
+    var r = AUTH.bootstrap(name, v1);
     if (!r.ok) { boot.err = r.error; renderGate(); return; }
     boot.err = '';
-    enter(boot.picked);
+    enter(name);
   }
 
   function doRescue() {
@@ -674,13 +702,19 @@
 
     // 登录门交互
     filterLogin: function (q) { login.q = String(q || ''); renderGate(); },
-    pickLogin: function (n) { login.picked = n; login.err = ''; renderGate(); },
+    pickLogin: function (n) { login.picked = n; login.typed = ''; login.q = ''; login.err = ''; renderGate(); },
+    typeLogin: function (v) { login.typed = String(v || '').trim(); login.picked = ''; login.err = ''; },
     submitLogin: submitLogin,
     toggleRescue: function () { rescue.open = !rescue.open; rescue.err = ''; rescue.ok = ''; renderGate(); },
     doRescue: doRescue,
     filterBoot: function (q) { boot.q = String(q || ''); renderGate(); },
-    pickBoot: function (n) { boot.picked = n; boot.err = ''; renderGate(); },
+    pickBoot: function (n) { boot.picked = n; boot.typed = ''; boot.q = ''; boot.err = ''; renderGate(); },
+    typeBoot: function (v) { boot.typed = String(v || '').trim(); boot.picked = ''; boot.err = ''; },
     doBootstrap: doBootstrap,
+    focusPwd: function () {
+      var p = doc.getElementById(mode === 'bootstrap' ? 'njgBootPwd' : 'njgLoginPwd');
+      if (p && p.focus) p.focus();
+    },
 
     // 退出
     logout: function () {

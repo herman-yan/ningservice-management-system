@@ -183,5 +183,18 @@ R.loginAs('刘珍', 'admin2026');
 ok('管理员登录', R.GATE.isAdmin() === true);
 ok('报表中心已渲染（管理员）', (R.get('view').innerHTML || '').length > 0);
 
+// ============================================================
+group('11. 工单系统：全新浏览器打开即预置管理员（空账号库）');
+let F = loadPage(WO, Object.assign({ storage: { station_mgmt_data: seedData }, withAuth: true }, HANDLES));
+ok('空库页面脚本无运行错误', !F.runError, F.runError && F.runError.message);
+ok('空库预置后进入登录门（非首次启用）', F.GATE.mode() === 'login', F.GATE.mode());
+ok('登录名单含赵轩', (F.get('njGate').innerHTML || '').indexOf('赵轩') >= 0);
+ok('登录名单含刘晓', (F.get('njGate').innerHTML || '').indexOf('刘晓') >= 0);
+ok('赵轩口令 000000 可登录', (() => { F.loginAs('赵轩', '000000'); return F.GATE.current() && F.GATE.current().name === '赵轩' && F.GATE.isAdmin(); })());
+ok('登录后业务页面放行', (F.get('mainContent').innerHTML || '').length > 0);
+ok('管理员可打开权限管理面板', (() => { F.GATE.openPanel(); return (F.get('njPanel').innerHTML || '').indexOf('权限管理') >= 0 && (F.get('njPanel').innerHTML || '').indexOf('赵轩') >= 0; })());
+F.GATE.logout();
+ok('刘晓口令 000000 可登录', (() => { F.loginAs('刘晓', '000000'); return F.GATE.current() && F.GATE.current().name === '刘晓' && F.GATE.isAdmin(); })());
+
 console.log('\n----------------------------------------');
 process.exit(report('登录门页面集成'));

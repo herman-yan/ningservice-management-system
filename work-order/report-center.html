@@ -975,6 +975,8 @@ function rptStartAfterLogin() {
 }
 
 if (RPT_GATE_ON) {
+  // 全新浏览器首次打开：预置赵轩、刘晓为管理员（口令 000000）；已有账号库时不介入。
+  if (AUTH.seedAdmins) AUTH.seedAdmins();
   NJ_GATE.init({
     pageName: '报表中心',
     getNames: rptNameRoster,
