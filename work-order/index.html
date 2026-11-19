@@ -77,7 +77,7 @@ tbody tr { cursor: pointer; }
 .status-pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
 .status-legacy { margin-left: 4px; font-size: 11px; color: #b26a00; cursor: help; }
 .status-待派工 { background: #f1f5f9; color: #64748b; }
-.status-未开工 { background: #f1f5f9; color: #64748b; }
+.status-已接单 { background: #f1f5f9; color: #64748b; }
 .status-待客户确认 { background: #fef3c7; color: #92400e; }
 .status-在修 { background: #dbeafe; color: #1d4ed8; }
 .status-已竣工 { background: #d1fae5; color: #065f46; }
@@ -261,11 +261,8 @@ tbody tr { cursor: pointer; }
       <span class="icon">📈</span><span>报表中心</span>
     </a>
     <div class="nav-section">工单管理</div>
-    <div class="nav-item" data-page="warranty" onclick="switchPage('warranty')">
-      <span class="icon">🔧</span><span>保内工单</span><span class="nav-badge" id="nav-badge-wn">0</span>
-    </div>
-    <div class="nav-item" data-page="nonwarranty" onclick="switchPage('nonwarranty')">
-      <span class="icon">🔩</span><span>保外工单</span><span class="nav-badge" id="nav-badge-nw">0</span>
+    <div class="nav-item active" data-page="allorders" onclick="switchPage('allorders')">
+      <span class="icon">🗂️</span><span>工单总览</span><span class="nav-badge" id="nav-badge-allorders">0</span>
     </div>
     <div class="nav-section">辅助管理</div>
     <div class="nav-item" data-page="warehouse" onclick="switchPage('warehouse')">
@@ -299,6 +296,7 @@ tbody tr { cursor: pointer; }
 </div>
 
 <script src="../assets/aftersales-guardrails.js"></script>
+<script src="../assets/customer-options.js"></script>
 <script src="../assets/dispatch-notify.js"></script>
 <script src="../assets/identity-panel.js"></script>
 <script src="../assets/auth-core.js"></script>
@@ -311,8 +309,9 @@ const STORAGE_KEY = 'station_mgmt_data';
 
 function getDefaultData() {
   return {
-    warrantyOrders: [],   // 保内工单
-    nonWarrantyOrders: [], // 保外工单
+    warrantyOrders: [],   // 保内工单（底层口径保留）
+    nonWarrantyOrders: [], // 保外工单（底层口径保留）
+    unclassifiedOrders: [], // 导入时无法判定保内/保外的行，等待人工归类
     engineers: ['刘珍','罗永豪','刘星彤','段宇航','杨国志','张峻','李恩浩','李旭东','周大伟','王子辉','苏越','张高丰','张祥英','马迪','张垚','何旭栋'],
     reporters: ['周字欢','刘程程','董慧莹','王鹏','赵轩'],
     warehouseLogs: [],
@@ -367,6 +366,17 @@ if (!ME.name && !AF_GATE_ON) ME = AFG.setIdentity((APP.engineers[0] || '未署�
 
 function afEsc(v) {
   return String(v === undefined || v === null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// 客户名称统一从历史台账候选里点选，不手工填写；
+// 老单据里不在候选名单的客户名仍保留一项，避免编辑时丢失原值。
+function customerOptionsHtml(selected) {
+  const list = (typeof CUSTOMER_OPTIONS !== 'undefined' && Array.isArray(CUSTOMER_OPTIONS)) ? CUSTOMER_OPTIONS : [];
+  const cur = String(selected || '');
+  let html = '<option value="">-- 请选择客户 --</option>';
+  html += list.map(n => `<option value="${afEsc(n)}"${cur === n ? ' selected' : ''}>${afEsc(n)}</option>`).join('');
+  if (cur && list.indexOf(cur) < 0) html += `<option value="${afEsc(cur)}" selected>${afEsc(cur)}（历史记录）</option>`;
+  return html;
 }
 
 // 岗位身份面板（assets/identity-panel.js）：侧栏折叠为一行，点开弹窗切换。
@@ -607,7 +617,7 @@ function afOpenQcModal(kind, id) {
         <textarea class="form-textarea" id="comp_note" rows="2" placeholder="维修情况、更换配件等" style="margin-top:8px"></textarea>
       </div>
       <div class="qc-err" id="afQcErr"></div>
-      <div class="qc-version">提交后进入「待班组复检」；复检与终检须由他人执行（责任分离）。</div>
+      <div class="qc-version">提交后直接进入「待质检终检」；终检须由技师以外的人执行（责任分离），通过即可竣工。</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">取消</button>
@@ -683,7 +693,7 @@ function genId(prefix) {
 }
 
 // ===== PAGE ROUTER =====
-let currentPage = 'dashboard';
+let currentPage = 'allorders';
 
 function switchPage(page) {
   currentPage = page;
@@ -697,6 +707,7 @@ function renderPage() {
   const main = document.getElementById('mainContent');
   switch(currentPage) {
     case 'dashboard': main.innerHTML = renderDashboard(); break;
+    case 'allorders': main.innerHTML = renderAllOrders(); break;
     case 'warranty': main.innerHTML = renderWarrantyList(); break;
     case 'nonwarranty': main.innerHTML = renderNonWarrantyList(); break;
     case 'warehouse': main.innerHTML = renderWarehouse(); break;
@@ -709,8 +720,13 @@ function renderPage() {
 function updateNavBadges() {
   const wnActive = afWarranty().filter(o => AFG.isActive('WN', o.status)).length;
   const nwActive = afNonWarranty().filter(o => AFG.isActive('NW', o.status)).length;
-  document.getElementById('nav-badge-wn').textContent = wnActive;
-  document.getElementById('nav-badge-nw').textContent = nwActive;
+  const uCount = (APP.unclassifiedOrders || []).length;
+  const badge = document.getElementById('nav-badge-allorders');
+  if (badge) badge.textContent = wnActive + nwActive + uCount;
+  const oldWn = document.getElementById('nav-badge-wn');
+  const oldNw = document.getElementById('nav-badge-nw');
+  if (oldWn) oldWn.textContent = wnActive;
+  if (oldNw) oldNw.textContent = nwActive;
 }
 
 // ===== DASHBOARD =====
@@ -781,7 +797,7 @@ function renderDashboard() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div class="card">
         <div class="card-title">🔧 保内工单状态分布</div>
-        ${renderStatusChart(wn, ['未派工','未开工','在修','已竣工','已结算','已结清','已终止'])}
+        ${renderStatusChart(wn, ['未派工','已接单','在修','已竣工','已结算','已结清','已终止'])}
       </div>
       <div class="card">
         <div class="card-title">🔩 保外工单状态分布</div>
@@ -869,6 +885,193 @@ function renderStatusChart(orders, statuses) {
       </div>
     `).join('')}
   </div>`;
+}
+
+// ===== 统一工单总览：底层仍是保内/保外两套台账，界面合并并按标签区分 =====
+let allCatFilter = '', allStatusFilter = '', allSearchText = '';
+
+function afUnclassified() { return APP.unclassifiedOrders || []; }
+
+function afAllOrders() {
+  const list = [];
+  afWarranty().forEach(o => list.push({ o: o, kind: 'WN', cat: '保内' }));
+  afNonWarranty().forEach(o => list.push({ o: o, kind: 'NW', cat: '保外' }));
+  afUnclassified().forEach(o => list.push({ o: o, kind: 'U', cat: '未分类' }));
+  return list;
+}
+
+function afCategoryBadge(cat) {
+  const style = cat === '保内' ? 'background:#dbeafe;color:#1e40af'
+    : cat === '保外' ? 'background:#dcfce7;color:#166534'
+    : 'background:#fef3c7;color:#92400e';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;${style}">${afEsc(cat)}</span>`;
+}
+
+// 等待天数优先取派单留痕时间，其次取登记日期
+function afWaitDays(o) {
+  const audit = Array.isArray(o.audit) ? o.audit : [];
+  const dispatch = audit.slice().reverse().find(a => a.action === 'dispatch');
+  const base = (dispatch && dispatch.at) || o.dispatchDate || o.registerDate || '';
+  const t = Date.parse(base);
+  if (!isFinite(t)) return 0;
+  return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+}
+
+// 已接单但未开始维修：今天接的是下周的单时，这里会按等待天数标出来
+function afAcceptedPending() {
+  return afAllOrders()
+    .filter(x => x.kind === 'WN' && x.o.status === '已接单' && !x.o.startDate)
+    .map(x => Object.assign({}, x, { days: afWaitDays(x.o) }))
+    .sort((a, b) => b.days - a.days);
+}
+
+function renderAcceptedPending(list) {
+  if (!list.length) return '<div style="color:var(--text-secondary);font-size:13px;padding:6px 2px">✅ 暂无「已接单未进行」的工单</div>';
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">' +
+    list.slice(0, 24).map(x => {
+      const warn = x.days >= 3;
+      return `<div style="border:1px solid ${warn ? '#f59e0b' : 'var(--border)'};background:${warn ? '#fffbeb' : '#fff'};border-radius:8px;padding:9px 11px">
+        <div style="font-weight:600;font-size:13px">${afEsc(x.o.id)} · ${afEsc(x.o.engineer || '未指派')}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">${afEsc(x.o.customerName || '—')} · ${afEsc(x.o.vehicleInfo || '—')}</div>
+        <div style="font-size:12px;margin-top:4px;color:${warn ? '#b45309' : 'var(--text-secondary)'};font-weight:${warn ? '700' : '400'}">已等待 ${x.days} 天${warn ? ' · 需跟进' : ''}</div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+function renderAllRows(list) {
+  if (!list.length) return '<tr><td colspan="10" style="text-align:center;color:var(--text-secondary);padding:40px">暂无匹配工单</td></tr>';
+  return list.map(x => {
+    const o = x.o;
+    const status = x.kind === 'U' ? (o.status || '待归类') : afStatusPill(x.kind, o);
+    const actions = x.kind === 'U'
+      ? `<button class="btn btn-sm btn-outline" onclick="classifyUnclassified('${afEsc(o.id)}','WN')">归类保内</button>
+         <button class="btn btn-sm btn-outline" onclick="classifyUnclassified('${afEsc(o.id)}','NW')">归类保外</button>`
+      : afActionButtons(x.kind, o);
+    return `<tr>
+      <td style="font-weight:600">${afEsc(o.id || '-')}</td>
+      <td>${afCategoryBadge(x.cat)}</td>
+      <td>${afEsc(o.customerName || o.signedCustomer || '-')}</td>
+      <td>${afEsc(o.vehicleInfo || o.plateNumber || '-')}</td>
+      <td>${status}</td>
+      <td>${afEsc(o.engineer || o.repairEngineer || '-')}</td>
+      <td>${afEsc(o.registerDate || o.requestDate || '-')}</td>
+      <td class="action-group" onclick="event.stopPropagation()">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAllOrders() {
+  const all = afAllOrders();
+  const pending = afAcceptedPending();
+  maybeSendDailyDigest(pending);
+  const statuses = Array.from(new Set(all.map(x => x.o.status || '待归类')));
+  return `
+    <div class="page-header">
+      <div><div class="page-title">工单总览</div><div class="page-subtitle">保内 / 保外 / 未分类统一视图 · 底层台账与流转口径保持不变</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn-upload" onclick="document.getElementById('excelFileInput').click()">📥 导入Excel</button>
+        <button class="btn-upload" onclick="downloadTemplate()">📄 下载模板</button>
+        <button class="btn btn-outline" onclick="openWarrantyForm()">+ 新建保内</button>
+        <button class="btn btn-outline" onclick="openNonWarrantyForm()">+ 新建保外</button>
+        <button class="btn btn-outline" onclick="sendPendingDigest(true)">🔔 推送待跟进提醒</button>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:700">⏳ 已接单未进行 <span style="color:#b45309">${pending.length}</span></div>
+        <div style="font-size:12px;color:var(--text-secondary)">已接单但尚未开始维修；等待超过 3 天高亮提醒</div>
+      </div>
+      ${renderAcceptedPending(pending)}
+    </div>
+    <div class="pipeline">
+      ${['全部', '保内', '保外', '未分类'].map(c => `<div class="pipeline-step" onclick="filterAllCategory('${c}')"><span>${c}</span></div>`).join('')}
+    </div>
+    <div class="filter-bar">
+      <input class="form-input search-input" placeholder="搜索编号/客户/车辆/故障..." oninput="searchAllOrders(this.value)" id="allSearch">
+      <select class="form-select" onchange="filterAllStatus(this.value)" id="allStatusFilter">
+        <option value="">全部状态</option>
+        ${statuses.map(s => `<option value="${afEsc(s)}">${afEsc(s)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="table-wrap"><table>
+        <thead><tr><th>编号</th><th>分类</th><th>客户</th><th>车辆</th><th>状态</th><th>工程师</th><th>登记日期</th><th>操作</th></tr></thead>
+        <tbody id="allTableBody">${renderAllRows(all)}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+
+function applyAllFilter() {
+  let list = afAllOrders();
+  if (allCatFilter && allCatFilter !== '全部') list = list.filter(x => x.cat === allCatFilter);
+  if (allStatusFilter) list = list.filter(x => (x.o.status || '待归类') === allStatusFilter);
+  if (allSearchText) {
+    const t = allSearchText.toLowerCase();
+    list = list.filter(x => ((x.o.id || '') + (x.o.customerName || '') + (x.o.signedCustomer || '') + (x.o.vehicleInfo || '') + (x.o.plateNumber || '') + (x.o.faultDesc || '')).toLowerCase().includes(t));
+  }
+  const body = document.getElementById('allTableBody');
+  if (body) body.innerHTML = renderAllRows(list);
+}
+function filterAllCategory(cat) { allCatFilter = cat; applyAllFilter(); }
+function filterAllStatus(v) { allStatusFilter = v; applyAllFilter(); }
+function searchAllOrders(t) { allSearchText = t; applyAllFilter(); }
+
+function nextOrderId(prefix) {
+  APP.idCounters[prefix] = (APP.idCounters[prefix] || 0) + 1;
+  return (prefix === 'wn' ? 'WN-' : 'NW-') + String(APP.idCounters[prefix]).padStart(6, '0');
+}
+
+// 未分类工单人工归类：进入对应台账后走各自原有流程，不破坏历史事实
+function classifyUnclassified(id, target) {
+  const arr = APP.unclassifiedOrders || [];
+  const idx = arr.findIndex(o => o.id === id);
+  if (idx < 0) return showUploadStatus('未找到该未分类工单', 'error');
+  const o = Object.assign({}, arr[idx]);
+  if (target === 'WN') {
+    if (!/^(WN-|NJ-)/.test(o.id || '')) o.id = nextOrderId('wn');
+    o.customerName = o.customerName || o.signedCustomer || '';
+    o.vehicleInfo = o.vehicleInfo || o.plateNumber || '';
+    o.status = AFG.isKnownStatus('WN', o.status) && AFG.isActive('WN', o.status) ? o.status : '未派工';
+    AFG.appendAudit(o, { action: 'classify', from: '未分类', to: o.status, actor: ME, note: '人工归类为保内' });
+    APP.warrantyOrders.push(o);
+  } else {
+    if (!/^(NW-)/.test(o.id || '')) o.id = nextOrderId('nw');
+    o.signedCustomer = o.signedCustomer || o.customerName || '';
+    o.plateNumber = o.plateNumber || o.vehicleInfo || '';
+    o.status = AFG.isKnownStatus('NW', o.status) && AFG.isActive('NW', o.status) ? o.status : '待客户确认';
+    AFG.appendAudit(o, { action: 'classify', from: '未分类', to: o.status, actor: ME, note: '人工归类为保外' });
+    APP.nonWarrantyOrders.push(o);
+  }
+  arr.splice(idx, 1);
+  APP.unclassifiedOrders = arr;
+  saveData(APP);
+  closeModal();
+  renderPage();
+  showUploadStatus('已归入' + (target === 'WN' ? '保内' : '保外') + '工单', 'success');
+}
+
+// 真实站点每天首开自动推送一次；测试夹具（example.test）不自动发，避免误发消息
+function digestAutoEnabled() {
+  const h = (typeof location !== 'undefined' && location.hostname) || '';
+  return /github\.io$/.test(h) || /^(localhost|127\.0\.0\.1)$/.test(h);
+}
+function sendPendingDigest(manual) {
+  if (typeof DISPATCH_NOTIFY === 'undefined' || typeof DISPATCH_NOTIFY.sendDigest !== 'function') {
+    if (manual) showUploadStatus('提醒模块未加载', 'error');
+    return;
+  }
+  const pending = afAcceptedPending().map(x => ({ id: x.o.id, engineer: x.o.engineer, days: x.days }));
+  if (!pending.length) { if (manual) showUploadStatus('暂无已接单未进行的工单', 'info'); return; }
+  const today = todayStr();
+  if (!manual && localStorage.getItem('nj_digest_sent_on') === today) return;
+  localStorage.setItem('nj_digest_sent_on', today);
+  DISPATCH_NOTIFY.sendDigest(pending, (ME && ME.name) || '').then(r => {
+    if (manual) showUploadStatus(r.ok ? '待跟进清单已推送钉钉' : ('推送失败：' + r.msg), r.ok ? 'success' : 'error');
+  });
+}
+function maybeSendDailyDigest(pending) {
+  if (pending.length && digestAutoEnabled()) sendPendingDigest(false);
 }
 
 // ===== WARRANTY (保内) LIST =====
@@ -1070,7 +1273,7 @@ function openWarrantyForm(id) {
           </div>
           <div class="form-group">
             <label class="form-label">客户名称<span class="required">*</span></label>
-            <input class="form-input" id="f_wn_customerName" value="${o?.customerName||''}" placeholder="客户/车队名称">
+            <select class="form-select" id="f_wn_customerName">${customerOptionsHtml(o?.customerName)}</select>
           </div>
           <div class="form-group">
             <label class="form-label">联系人</label>
@@ -1250,7 +1453,7 @@ function saveWarranty(editId) {
     if(idx >= 0) Object.assign(APP.warrantyOrders[idx], data);
   } else {
     data.id = genId('wn');
-    data.status = data.engineer ? '未开工' : '未派工';
+    data.status = data.engineer ? '已接单' : '未派工';
     data.startDate = '';
     data.completeDate = '';
     data.engineerNote = '';
@@ -1295,7 +1498,7 @@ function openNonWarrantyForm(id) {
           </div>
           <div class="form-group">
             <label class="form-label">签约客户名称<span class="required">*</span></label>
-            <input class="form-input" id="f_nw_signedCustomer" value="${o?.signedCustomer||''}" placeholder="签约客户">
+            <select class="form-select" id="f_nw_signedCustomer">${customerOptionsHtml(o?.signedCustomer)}</select>
           </div>
           <div class="form-group">
             <label class="form-label">车牌号<span class="required">*</span></label>
@@ -1964,7 +2167,7 @@ function renderEngineers() {
         <thead><tr><th>工程师</th><th>保内在修</th><th>保内已竣工</th><th>保外维修中</th><th>保外已完成</th><th>本月产值</th><th>操作</th></tr></thead>
         <tbody>
           ${APP.engineers.map(e => {
-            const wnActive = APP.warrantyOrders.filter(o => o.engineer===e && ['未开工','在修'].includes(o.status)).length;
+            const wnActive = APP.warrantyOrders.filter(o => o.engineer===e && ['已接单','在修'].includes(o.status)).length;
             const wnDone = APP.warrantyOrders.filter(o => o.engineer===e && ['已竣工','已结算','已结清'].includes(o.status)).length;
             const nwActive = APP.nonWarrantyOrders.filter(o => o.repairEngineer===e && o.status==='待客户确认').length;
             const nwDone = APP.nonWarrantyOrders.filter(o => o.repairEngineer===e && o.status==='维修完成').length;
@@ -2207,7 +2410,7 @@ const WN_SIG = ['编号','登记日期','维修类型','完成状态','责任工
 const NW_SIG = ['签约客户名称','报价单','分润','车牌号','车架号','维修状态','业务对接人','物流往返','宁德','实际业务毛利润','barcode号','产品pn','工单号','序号','城市'];
 // 状态枚举（行级兜底判定）：只用于导入行的保内/保外判别，两套刻意互不重叠；
 // 流转模板的全量状态请看 AFG.WN_FLOW/NW_FLOW.states
-const WN_STATUS = ['未派工','未开工','在修','已竣工','已结算','已结清','已终止'];
+const WN_STATUS = ['未派工','已接单','在修','已竣工','已结算','已结清','已终止'];
 const NW_STATUS = ['待客户确认','维修完成','关闭工单'];
 
 function detectSheetType(headers) {
@@ -2287,14 +2490,15 @@ function classifySheetRows(rows) {
     if (conflict) useSheetType = false;   // 存在反向行 → 整表结论不可靠，转逐行
   }
 
-  const wn = [], nw = [];
+  const wn = [], nw = [], other = [];
   rows.forEach(r => {
     const t = typeCol ? classifyRow(r, typeCol, headers)
       : (useSheetType ? sheetType : classifyRow(r, null, headers));
     if (t === 'warranty') wn.push(r);
     else if (t === 'nonwarranty') nw.push(r);
+    else other.push(r);   // 判定不了的行不丢弃，进未分类池等人工归类
   });
-  return { wn, nw };
+  return { wn, nw, other };
 }
 
 function mapRow(rawRow, columnMap, defaults) {
@@ -2322,9 +2526,12 @@ function mapRow(rawRow, columnMap, defaults) {
 function afIngestWorkbook(arrayBuffer) {
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type:'array', cellDates:true});
 
-  let totalWn = 0, totalNw = 0, skipped = 0;
-  const newWnData = [], newNwData = [];
+  let totalWn = 0, totalNw = 0, totalOther = 0, skipped = 0;
+  const newWnData = [], newNwData = [], newOtherData = [];
   const sheetStats = [];
+  // 未分类行：把两侧列头都试着映射一遍，保留原始状态供人工归类时参考
+  const U_MAP = Object.assign({}, WN_COLUMN_MAP, NW_COLUMN_MAP);
+  const U_DEFAULTS = Object.assign({}, WN_DEFAULTS, NW_DEFAULTS, { id: '', status: '待归类', statusRaw: '', category: '未分类' });
   // 批量编号：一次递增计数器，避免逐行写盘（大表导入更快）
   const nextId = (prefix) => {
     APP.idCounters[prefix]++;
@@ -2337,7 +2544,7 @@ function afIngestWorkbook(arrayBuffer) {
     if (!jsonData.length) continue;
 
     // 逐行分类（兼容整表保内/保外、单表混合、列头变体）
-    const { wn, nw } = classifySheetRows(jsonData);
+    const { wn, nw, other } = classifySheetRows(jsonData);
 
     wn.forEach(row => {
       const mapped = mapRow(row, WN_COLUMN_MAP, WN_DEFAULTS);
@@ -2354,11 +2561,24 @@ function afIngestWorkbook(arrayBuffer) {
       newNwData.push(mapped);
       totalNw++;
     });
-    skipped += (jsonData.length - wn.length - nw.length);
-    sheetStats.push({ sheet: sheetName, wn: wn.length, nw: nw.length, total: jsonData.length });
+    other.forEach(row => {
+      const mapped = mapRow(row, U_MAP, U_DEFAULTS);
+      const rawStatus = String(mapped.status || '').trim();
+      if (!mapped.customerName && !mapped.signedCustomer && !mapped.vehicleInfo &&
+          !mapped.plateNumber && !mapped.faultDesc) { skipped++; return; }
+      APP.idCounters.u = (APP.idCounters.u || 0) + 1;
+      mapped.sourceId = mapped.id || '';
+      mapped.id = 'U-' + String(APP.idCounters.u).padStart(6, '0');
+      mapped.statusRaw = rawStatus;
+      mapped.status = '待归类';
+      mapped.category = '未分类';
+      newOtherData.push(mapped);
+      totalOther++;
+    });
+    sheetStats.push({ sheet: sheetName, wn: wn.length, nw: nw.length, other: other.length, total: jsonData.length });
   }
 
-  return { totalWn, totalNw, skipped, newWnData, newNwData, sheetStats };
+  return { totalWn, totalNw, totalOther, skipped, newWnData, newNwData, newOtherData, sheetStats };
 }
 
 // 合并入台账 + 生成结果对象（不触碰界面）
@@ -2367,10 +2587,14 @@ function afCommitImport(ing) {
   if (wnRes) APP.warrantyOrders = wnRes.merged.concat(wnRes.added);
   const nwRes = ing.totalNw > 0 ? afMergeInto(APP.nonWarrantyOrders, ing.newNwData, AFG.nwMatchKey) : null;
   if (nwRes) APP.nonWarrantyOrders = nwRes.merged.concat(nwRes.added);
+  APP.unclassifiedOrders = APP.unclassifiedOrders || [];
+  const uRes = ing.totalOther > 0 ? afMergeInto(APP.unclassifiedOrders, ing.newOtherData, o => o.id) : null;
+  if (uRes) APP.unclassifiedOrders = uRes.merged.concat(uRes.added);
   saveData(APP);   // 编号计数器与台账一次写入
   return {
     wn: wnRes ? { added: wnRes.added.length, updated: wnRes.updated.length, unchanged: wnRes.unchanged.length, summary: wnRes.summary } : null,
     nw: nwRes ? { added: nwRes.added.length, updated: nwRes.updated.length, unchanged: nwRes.unchanged.length, summary: nwRes.summary } : null,
+    other: uRes ? { added: uRes.added.length, updated: uRes.updated.length, unchanged: uRes.unchanged.length, summary: uRes.summary } : null,
     skipped: ing.skipped
   };
 }
@@ -2380,15 +2604,15 @@ function handleExcelUpload(input) {
   const file = input.files[0];
   if (!file) return;
 
-  showUploadStatus('⏳ 正在读取 <b>' + file.name + '</b> 并自动识别保内/保外 ...', 'info');
+  showUploadStatus('⏳ 正在读取 <b>' + file.name + '</b> 并自动识别保内/保外/未分类 ...', 'info');
 
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const ing = afIngestWorkbook(e.target.result);
 
-      if (ing.totalWn === 0 && ing.totalNw === 0) {
-        showUploadStatus('⚠️ 未能识别数据类型：请先点「📄 下载模板」对照列头，或确保包含保内/保外特征列（如 编号/责任工程师、签约客户/报价单）。', 'error');
+      if (ing.totalWn === 0 && ing.totalNw === 0 && ing.totalOther === 0) {
+        showUploadStatus('⚠️ 表格没有可用数据行：请先点「📄 下载模板」对照列头，或检查客户/车辆/故障描述是否为空。', 'error');
         input.value = '';
         return;
       }
@@ -2400,6 +2624,7 @@ function handleExcelUpload(input) {
       const parts = [];
       if (r.wn) parts.push('保内 ' + r.wn.summary);
       if (r.nw) parts.push('保外 ' + r.nw.summary);
+      if (r.other) parts.push('未分类 ' + r.other.summary);
       msg += parts.join(' · ') + ' — 来自 <b>' + afEsc(file.name) + '</b>';
       if (r.skipped > 0) msg += ' <span style="opacity:.8">（' + r.skipped + ' 行无法识别已跳过）</span>';
       showUploadStatus(msg, 'success');
@@ -2424,15 +2649,15 @@ function importFromDashboard(input) {
   const file = input.files[0];
   if (!file) return;
 
-  showUploadStatus('⏳ 正在读取 <b>' + afEsc(file.name) + '</b> 并自动分配保内/保外 ...', 'info');
+  showUploadStatus('⏳ 正在读取 <b>' + afEsc(file.name) + '</b> 并自动分配保内/保外/未分类 ...', 'info');
 
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const ing = afIngestWorkbook(e.target.result);
 
-      if (ing.totalWn === 0 && ing.totalNw === 0) {
-        showUploadStatus('⚠️ 未能识别数据类型：请确认表格含保内特征列（编号/责任工程师/GSS工单号）或保外特征列（签约客户/报价单/车牌号），或含「类型」列标注保内/保外。', 'error');
+      if (ing.totalWn === 0 && ing.totalNw === 0 && ing.totalOther === 0) {
+        showUploadStatus('⚠️ 表格没有可用数据行：请确认客户/车辆/故障描述有内容，或含「类型」列标注保内/保外。', 'error');
         input.value = '';
         return;
       }
@@ -2444,6 +2669,7 @@ function importFromDashboard(input) {
       const parts = [];
       if (r.wn) parts.push('保内 ' + r.wn.summary);
       if (r.nw) parts.push('保外 ' + r.nw.summary);
+      if (r.other) parts.push('未分类 ' + r.other.summary);
       let msg = '✅ 已自动分配并入库：' + parts.join(' · ');
       if (r.skipped > 0) msg += ' <span style="opacity:.8">（' + r.skipped + ' 行无法识别已跳过）</span>';
       showUploadStatus(msg, 'success');

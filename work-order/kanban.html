@@ -83,7 +83,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Mi
 
 /* Column color themes */
 .col-未派工 .kanban-col-header { background:#f1f5f9; color:#475569; }
-.col-未开工 .kanban-col-header { background:#fef3c7; color:#92400e; }
+.col-已接单 .kanban-col-header { background:#fef3c7; color:#92400e; }
 .col-在修 .kanban-col-header { background:#dbeafe; color:#1d4ed8; }
 .col-已竣工 .kanban-col-header { background:#d1fae5; color:#065f46; }
 .col-已结算 .kanban-col-header { background:#dcfce7; color:#166534; }
@@ -256,7 +256,7 @@ function renderTopStats(data) {
 function renderStatsRow(data) {
   const el = document.getElementById('statsRow');
   if(currentType === 'warranty') {
-    const statuses = ['未派工','未开工','在修','已竣工','已结算','已结清','已终止'];
+    const statuses = ['未派工','已接单','在修','已竣工','已结算','已结清','已终止'];
     const colors = ['#64748b','#d97706','#2563eb','#16a34a','#15803d','#059669','#dc2626'];
     el.innerHTML = statuses.map((s,i) => {
       const c = data.filter(o => o.status === s).length;
@@ -275,7 +275,7 @@ function renderStatsRow(data) {
 function renderKanban(data) {
   const board = document.getElementById('kanbanBoard');
   const columns = currentType === 'warranty'
-    ? ['未派工','未开工','在修','已竣工','已结算','已结清','已终止']
+    ? ['未派工','已接单','在修','已竣工','已结算','已结清','已终止']
     : ['待客户确认','维修完成','关闭工单'];
 
   board.innerHTML = columns.map(col => {
@@ -369,7 +369,7 @@ function viewWnDetail(id) {
   if(!o) return;
 
   // Progress
-  const statusFlow = ['未派工','未开工','在修','已竣工','已结算','已结清'];
+  const statusFlow = ['未派工','已接单','在修','已竣工','已结算','已结清'];
   const currentIdx = statusFlow.indexOf(o.status);
   const progress = o.status === '已终止' ? 0 : (currentIdx >= 0 ? Math.round((currentIdx / (statusFlow.length-1)) * 100) : 0);
   const progressColor = o.status === '已终止' ? '#dc2626' : currentIdx >= 4 ? '#16a34a' : '#2563eb';
@@ -705,7 +705,7 @@ function normHeader(h) {
 }
 const WN_SIG = ['编号','登记日期','维修类型','完成状态','责任工程师','gss工单号','工程师产值','中台备注','旧件返厂','申领物料','工单提交时间','建单日期','gss总费用','派工'];
 const NW_SIG = ['签约客户名称','报价单','分润','车牌号','车架号','维修状态','业务对接人','物流往返','宁德','实际业务毛利润','barcode号','产品pn','工单号','序号','城市'];
-const WN_STATUS = ['未派工','未开工','在修','已竣工','已结算','已结清','已终止'];
+const WN_STATUS = ['未派工','已接单','在修','已竣工','已结算','已结清','已终止'];
 const NW_STATUS = ['待客户确认','维修完成','关闭工单'];
 
 function detectSheetType(headers) {

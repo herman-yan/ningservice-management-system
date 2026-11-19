@@ -82,7 +82,7 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
   ok('认不出的脏状态原样保留、标记为未知', A.normalizeStatus('WN', '已完工??') === '已完工??' && A.isKnownStatus('WN', '已完工??') === false);
   ok('归一后终态单不再给操作按钮', T.afActionButtons('NW', find(T, 'NW', 'NW-000002')).indexOf('afOpenAction') < 0);
 
-  group('3. 保内全链路：派单→开工→自检→复检→终检→结算→结清');
+  group('3. 保内全链路：派单→已接单→开始维修→自检→终检→结算→结清');
   T.afOpenAction('WN', 'WN-000001', 'dispatch');
   get('dispatch_eng').value = '';
   T.confirmDispatchWarranty('WN-000001');
@@ -90,12 +90,12 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
   get('dispatch_eng').value = '刘珍';
   T.confirmDispatchWarranty('WN-000001');
   const o1 = find(T, 'WN', 'WN-000001');
-  ok('派单后=未开工且写入责任工程师', o1.status === '未开工' && o1.engineer === '刘珍');
+  ok('派单后=已接单且写入责任工程师', o1.status === '已接单' && o1.engineer === '刘珍');
   ok('流转模板版本随单据落库', o1.flowTemplateVersion === A.WN_FLOW.version && !!o1.flowTemplateEffectiveAt);
   ok('派单动作留痕含岗位', o1.audit.some(a => a.action === 'dispatch' && a.actor === '王鹏' && a.roleLabel === '调度'));
   T.ME = { name: '刘珍', role: 'TECHNICIAN' };
   T.afCommit('WN', 'WN-000001', 'start', {});
-  ok('开工后=在修并记录开工日期', o1.status === '在修' && !!o1.startDate);
+  ok('开始维修后=在修并记录开工日期', o1.status === '在修' && !!o1.startDate);
   T.afOpenQcModal('WN', 'WN-000001');
   const qcHtml = els.get('modalContent').innerHTML;
   ok('自检弹窗列出 11 项清单与模板版本', A.QC_ITEMS.every(i => qcHtml.indexOf('qc_' + i.code) >= 0) && qcHtml.indexOf(A.QC_TEMPLATE_VERSION) >= 0);
@@ -110,15 +110,13 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
   get('comp_note').value = '更换箱体并做扭矩标记';
   get('comp_output').value = '1200';
   T.afSubmitQc('WN', 'WN-000001');
-  ok('清单+门槛齐备后进入待班组复检', o1.status === '待班组复检');
+  ok('清单+门槛齐备后直接进入待质检终检（无班组复检）', o1.status === '待质检终检');
   ok('自检事实带模板版本与11项', o1.qc.self.templateVersion === A.QC_TEMPLATE_VERSION && o1.qc.self.qc.items.length === 11);
   ok('自检事实记录申报人与完工信息', o1.qc.self.name === '刘珍' && o1.completeDate === '2026-10-19' && o1.engineerNote === '更换箱体并做扭矩标记');
-  T.afCommit('WN', 'WN-000001', 'team_review_pass', {});
-  ok('自检人不能兼任复检（责任分离）', o1.status === '待班组复检' && statusMsg(get).indexOf('责任分离') >= 0);
-  T.ME = { name: '罗永豪', role: 'TECHNICIAN' };
-  T.afCommit('WN', 'WN-000001', 'team_review_pass', {});
-  ok('班组他人复检通过', o1.status === '待质检终检');
-  T.ME = { name: '刘珍', role: 'TECHNICIAN' };
+  T.ME = { name: '刘珍', role: 'QUALITY_INSPECTOR' };
+  T.afCommit('WN', 'WN-000001', 'final_pass', {});
+  ok('自检人不能兼任终检（责任分离）', o1.status === '待质检终检' && statusMsg(get).indexOf('责任分离') >= 0);
+  T.ME = { name: '周字欢', role: 'REPORTER' };
   T.afCommit('WN', 'WN-000001', 'final_pass', {});
   ok('终检不允许非专职质检员', o1.status === '待质检终检' && statusMsg(get).indexOf('不能执行') >= 0);
   T.ME = { name: '马迪', role: 'QUALITY_INSPECTOR' };
@@ -131,7 +129,7 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
   T.afCommit('WN', 'WN-000001', 'clear', {});
   ok('补上的断链：已结算 → 已结清', o1.status === '已结清');
   ok('结清后无后续动作（终态）', A.actionable('WN', o1, { name: '任意', role: 'ADMIN' }).length === 0);
-  ok('全链路留痕按顺序累积', o1.audit.map(a => a.action).join('>') === 'dispatch>start>self_check>team_review_pass>final_pass>settle>clear');
+  ok('全链路留痕按顺序累积（无班组复检）', o1.audit.map(a => a.action).join('>') === 'dispatch>start>self_check>final_pass>settle>clear');
   ok('留痕与模板版本已写入 localStorage', store.station_mgmt_data.indexOf('"flowTemplateVersion"') >= 0 && store.station_mgmt_data.indexOf('"audit"') >= 0);
 
   group('4. 非法跳转 / 终止必填原因 / 幂等');
@@ -160,12 +158,13 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
 
   group('5. 质检驳回回环与详情留痕展示');
   T.afCommit('NW', 'NW-000001', 'self_check', { qc: { items: A.QC_CODES.map(c => ({ code: c, passed: true })), insulationMohm: 1000, capacityRecoveryPct: 96, voltageDrop72hMv: 5 } });
-  ok('技师自检申报（在修→待班组复检）', n1.status === '待班组复检');
-  T.afCommit('NW', 'NW-000001', 'team_review_pass', {});
-  ok('自检人不能复检（责任分离）', n1.status === '待班组复检' && statusMsg(get).indexOf('责任分离') >= 0);
-  T.ME = { name: '罗永豪', role: 'TECHNICIAN' };
+  ok('技师自检申报（在修→待质检终检）', n1.status === '待质检终检');
+  T.ME = { name: '刘珍', role: 'QUALITY_INSPECTOR' };
+  T.afCommit('NW', 'NW-000001', 'final_pass', {});
+  ok('自检人不能终检（责任分离）', n1.status === '待质检终检' && statusMsg(get).indexOf('责任分离') >= 0);
+  T.ME = { name: '罗永豪', role: 'QUALITY_INSPECTOR' };
   T.afCommit('NW', 'NW-000001', 'reject', { reason: '扭矩标记缺失' });
-  ok('复检驳回 → 驳回待重检并记录否决人', n1.status === '驳回待重检' && n1.qc.rejectedBy.name === '罗永豪');
+  ok('质检驳回 → 驳回待重检并记录否决人', n1.status === '驳回待重检' && n1.qc.rejectedBy.name === '罗永豪');
   T.ME = { name: '刘程程', role: 'REPORTER' };
   T.renderPage();
   T.viewWarranty('WN-000001');
@@ -174,9 +173,9 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
   ok('详情页可回放责任链（含岗位署名）', detail.indexOf('调度') >= 0 && detail.indexOf('专职质检员') >= 0);
 
   group('6. 导入状态口径与去重合并（不静默改写、不倒退流转）');
-  const mid = { vehicleInfo: '京C00001', customerName: '导入客户', registerDate: '2026-10-18', status: '待班组复检', engineer: '刘珍' };
+  const mid = { vehicleInfo: '京C00001', customerName: '导入客户', registerDate: '2026-10-18', status: '待质检终检', engineer: '刘珍' };
   T.afAssignIncomingStatus('WN', mid, mid.status);
-  ok('模板内的中间态原样保留（复检中的单不被打回入口态）', mid.status === '待班组复检' && !mid.statusRaw);
+  ok('模板内的中间态原样保留（待终检的单不被打回入口态）', mid.status === '待质检终检' && !mid.statusRaw);
   const alias = { vehicleInfo: '京A00001 / 车型X', customerName: '测试客户甲', registerDate: '2026-10-10', status: '在修', engineer: '', faultDesc: '表内新描述' };
   T.afAssignIncomingStatus('WN', alias, alias.status);
   const dirty = { vehicleInfo: '京C00002', customerName: '脏数据客户', registerDate: '2026-10-18', status: '已完工??' };

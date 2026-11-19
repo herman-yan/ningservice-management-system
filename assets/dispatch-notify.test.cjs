@@ -130,6 +130,33 @@ const nw = {
     assert.strictEqual(r.ok, false);
     assert.strictEqual(f.calls.length, 0);
   });
+  await ok('待跟进清单正文含工单与等待天数', async () => {
+    const f = fakeFetch(jsonResponse({ ok: true, msg: '提醒已送达' }));
+    const r = await N.sendDigest([
+      { id: 'WN-000001', engineer: '刘珍', days: 5 },
+      { id: 'WN-000002', engineer: '罗永豪', days: 1 }
+    ], '王鹏', { fetchImpl: f, now: new Date('2026-11-19T14:00:00') });
+    assert.strictEqual(r.ok, true);
+    const body = JSON.parse(f.calls[0].opts.body);
+    assert.strictEqual(body.id, 'DIGEST-20261119');
+    assert.strictEqual(body.kind, '已接单未进行提醒');
+    assert.ok(body.fault.indexOf('WN-000001') >= 0);
+    assert.ok(body.fault.indexOf('已等待5天') >= 0);
+    assert.ok(body.customer.indexOf('2 单') >= 0);
+  });
+  await ok('空清单也发送且写明暂无', async () => {
+    const f = fakeFetch(jsonResponse({ ok: true }));
+    await N.sendDigest([], '', { fetchImpl: f });
+    const body = JSON.parse(f.calls[0].opts.body);
+    assert.strictEqual(body.fault, '暂无');
+    assert.strictEqual(body.operator, '系统');
+  });
+  await ok('清单推送失败时返回失败原因', async () => {
+    const f = fakeFetch(jsonResponse({ ok: false, msg: '钉钉返回：限流' }));
+    const r = await N.sendDigest([{ id: 'WN-1', days: 3 }], '王鹏', { fetchImpl: f });
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.msg.indexOf('限流') >= 0);
+  });
   await ok('自定义转发地址可用于隔离测试', async () => {
     const f = fakeFetch(jsonResponse({ ok: true }));
     const r = await N.notify('WN', wn, '刘珍', '赵轩', { fetchImpl: f, url: 'http://127.0.0.1:1/notify', key: 'test' });

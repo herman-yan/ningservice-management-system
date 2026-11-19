@@ -51,9 +51,8 @@
     };
   }
 
-  function notify(kind, order, engineer, operator, opts) {
+  function postPayload(payload, opts) {
     opts = opts || {};
-    var payload = buildPayload(kind, order, engineer, operator, opts.now);
     if (!payload.id || !payload.engineer) {
       return Promise.resolve({ ok: false, msg: '工单编号或工程师为空', payload: payload });
     }
@@ -91,9 +90,37 @@
       });
   }
 
+  function notify(kind, order, engineer, operator, opts) {
+    opts = opts || {};
+    return postPayload(buildPayload(kind, order, engineer, operator, opts.now), opts);
+  }
+
+  // 「已接单未进行」每日清单：仍然走同一条转发通道，正文列出工单与等待天数。
+  function sendDigest(items, operator, opts) {
+    opts = opts || {};
+    var list = Array.isArray(items) ? items : [];
+    var lines = list.slice(0, 20).map(function (x) {
+      return (x.id || '?') + '（' + (x.engineer || '未指派') + '，已等待' + (x.days || 0) + '天）';
+    }).join('；');
+    var d = opts.now || new Date();
+    var stamp = String(d.getFullYear()) + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+    var payload = {
+      id: 'DIGEST-' + stamp,
+      kind: '已接单未进行提醒',
+      engineer: '当班负责人',
+      customer: '共 ' + list.length + ' 单未开工',
+      vehicle: '—',
+      fault: lines || '暂无',
+      operator: clean(operator) || '系统',
+      time: localTime(d)
+    };
+    return postPayload(payload, opts);
+  }
+
   return {
     RELAY_URL: RELAY_URL,
     buildPayload: buildPayload,
-    notify: notify
+    notify: notify,
+    sendDigest: sendDigest
   };
 });

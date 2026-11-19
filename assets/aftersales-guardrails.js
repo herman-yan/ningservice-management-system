@@ -27,15 +27,15 @@
   // 需要「看全局」的岗位开放：调度、财务、监管、质检、管理员。技师/报单员/库房
   // 各自只看单点数据，不进入报表中心。
   var ROLE_PAGES = {
-    REPORTER: ['dashboard', 'warranty', 'nonwarranty', 'warehouse', 'export'],
-    DISPATCHER: ['dashboard', 'report', 'warranty', 'nonwarranty', 'warehouse', 'engineers', 'export', 'orders', 'txns'],
-    TECHNICIAN: ['dashboard', 'warranty', 'nonwarranty', 'orders'],
+    REPORTER: ['dashboard', 'allorders', 'warranty', 'nonwarranty', 'warehouse', 'export'],
+    DISPATCHER: ['dashboard', 'report', 'allorders', 'warranty', 'nonwarranty', 'warehouse', 'engineers', 'export', 'orders', 'txns'],
+    TECHNICIAN: ['dashboard', 'allorders', 'warranty', 'nonwarranty', 'orders'],
     WAREHOUSE: ['dashboard', 'warehouse', 'orders', 'txns', 'oldparts', 'inventory'],
     PURCHASER: ['dashboard', 'warehouse', 'orders', 'txns', 'inventory'],
-    FINANCE: ['dashboard', 'report', 'nonwarranty', 'export'],
-    AUDITOR: ['dashboard', 'report', 'warranty', 'nonwarranty', 'warehouse', 'engineers', 'export', 'orders', 'txns', 'inventory', 'oldparts'],
-    QUALITY_INSPECTOR: ['dashboard', 'report', 'warranty', 'nonwarranty'],
-    ADMIN: ['dashboard', 'report', 'warranty', 'nonwarranty', 'warehouse', 'engineers', 'export', 'orders', 'txns', 'inventory', 'oldparts']
+    FINANCE: ['dashboard', 'report', 'allorders', 'nonwarranty', 'export'],
+    AUDITOR: ['dashboard', 'report', 'allorders', 'warranty', 'nonwarranty', 'warehouse', 'engineers', 'export', 'orders', 'txns', 'inventory', 'oldparts'],
+    QUALITY_INSPECTOR: ['dashboard', 'report', 'allorders', 'warranty', 'nonwarranty'],
+    ADMIN: ['dashboard', 'report', 'allorders', 'warranty', 'nonwarranty', 'warehouse', 'engineers', 'export', 'orders', 'txns', 'inventory', 'oldparts']
   };
 
   // 只读岗位：能看不能推动流转
@@ -171,19 +171,15 @@
   // ===== 3. 状态机（版本化模板）=====
   // transition: { action 动作标识, label 按钮文案, to 目标状态, roles 允许岗位, stage 质检阶段(可选) }
   var WN_FLOW = {
-    version: 'CETT-WN-FLOW-v2', effectiveAt: '2026-10-19',
-    states: ['未派工', '未开工', '在修', '待班组复检', '待质检终检', '驳回待重检', '已竣工', '已结算', '已结清', '已终止'],
+    version: 'CETT-WN-FLOW-v3', effectiveAt: '2026-11-19',
+    states: ['未派工', '已接单', '在修', '待质检终检', '驳回待重检', '已竣工', '已结算', '已结清', '已终止'],
     terminal: ['已结清', '已终止'],
     entry: '未派工',
     transitions: {
-      '未派工': [{ action: 'dispatch', label: '派单', to: '未开工', roles: ['DISPATCHER', 'ADMIN'] }],
-      '未开工': [{ action: 'start', label: '开工', to: '在修', roles: ['TECHNICIAN', 'DISPATCHER', 'ADMIN'] }],
-      '在修': [{ action: 'self_check', label: '申报竣工(技师自检)', to: '待班组复检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
-      '驳回待重检': [{ action: 'self_check', label: '重新申报竣工', to: '待班组复检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
-      '待班组复检': [
-        { action: 'team_review_pass', label: '班组复检通过', to: '待质检终检', roles: ['TECHNICIAN', 'DISPATCHER', 'ADMIN'], stage: 'TEAM' },
-        { action: 'reject', label: '驳回重检', to: '驳回待重检', roles: ['TECHNICIAN', 'QUALITY_INSPECTOR', 'ADMIN'], stage: 'TEAM' }
-      ],
+      '未派工': [{ action: 'dispatch', label: '派单', to: '已接单', roles: ['DISPATCHER', 'ADMIN'] }],
+      '已接单': [{ action: 'start', label: '开始维修', to: '在修', roles: ['TECHNICIAN', 'DISPATCHER', 'ADMIN'] }],
+      '在修': [{ action: 'self_check', label: '申报竣工(技师自检)', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
+      '驳回待重检': [{ action: 'self_check', label: '重新申报竣工', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
       '待质检终检': [
         { action: 'final_pass', label: '终检通过', to: '已竣工', roles: ['QUALITY_INSPECTOR'], stage: 'FINAL' },
         { action: 'reject', label: '技术否决·驳回重检', to: '驳回待重检', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' }
@@ -196,19 +192,15 @@
   };
 
   var NW_FLOW = {
-    version: 'CETT-NW-FLOW-v2', effectiveAt: '2026-10-19',
-    states: ['待客户确认', '报价确认', '在修', '待班组复检', '待质检终检', '驳回待重检', '维修完成', '已关单', '已终止'],
+    version: 'CETT-NW-FLOW-v3', effectiveAt: '2026-11-19',
+    states: ['待客户确认', '报价确认', '在修', '待质检终检', '驳回待重检', '维修完成', '已关单', '已终止'],
     terminal: ['已关单', '已终止'],
     entry: '待客户确认',
     transitions: {
       '待客户确认': [{ action: 'quote_confirm', label: '客户确认报价', to: '报价确认', roles: ['REPORTER', 'DISPATCHER', 'ADMIN'] }],
       '报价确认': [{ action: 'start', label: '开工', to: '在修', roles: ['TECHNICIAN', 'DISPATCHER', 'ADMIN'] }],
-      '在修': [{ action: 'self_check', label: '申报竣工(技师自检)', to: '待班组复检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
-      '驳回待重检': [{ action: 'self_check', label: '重新申报竣工', to: '待班组复检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
-      '待班组复检': [
-        { action: 'team_review_pass', label: '班组复检通过', to: '待质检终检', roles: ['TECHNICIAN', 'DISPATCHER', 'ADMIN'], stage: 'TEAM' },
-        { action: 'reject', label: '驳回重检', to: '驳回待重检', roles: ['TECHNICIAN', 'QUALITY_INSPECTOR', 'ADMIN'], stage: 'TEAM' }
-      ],
+      '在修': [{ action: 'self_check', label: '申报竣工(技师自检)', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
+      '驳回待重检': [{ action: 'self_check', label: '重新申报竣工', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
       '待质检终检': [
         { action: 'final_pass', label: '终检通过', to: '维修完成', roles: ['QUALITY_INSPECTOR'], stage: 'FINAL' },
         { action: 'reject', label: '技术否决·驳回重检', to: '驳回待重检', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' }
@@ -268,8 +260,19 @@
 
   // 历史数据（旧状态口径）归一到新状态机，保证不丢单
   var LEGACY_STATUS = {
-    WN: { '关闭工单': '已结清' },
-    NW: { '关闭工单': '已关单' }
+    WN: {
+      '关闭工单': '已结清',
+      '未开工': '已接单',
+      '待班组复检': '待质检终检',
+      '待复检': '待质检终检',
+      '驳回待复检': '驳回待重检'
+    },
+    NW: {
+      '关闭工单': '已关单',
+      '待班组复检': '待质检终检',
+      '待复检': '待质检终检',
+      '驳回待复检': '驳回待重检'
+    }
   };
   function normalizeStatus(kind, status) {
     var flow = FLOWS[kind];
@@ -336,7 +339,8 @@
   }
 
   // 责任分离：同一人不能在同一工单上兼任自检与复检/终检
-  var STAGE_PRECEDENCE = { SELF: ['self'], TEAM: ['self', 'team'], FINAL: ['self', 'team'] };
+  // 单次质检：终检只需与技师自检异人，不再经过班组复检
+  var STAGE_PRECEDENCE = { SELF: ['self'], TEAM: ['self', 'team'], FINAL: ['self'] };
   function assertDistinctActor(order, stage, actor) {
     var prev = STAGE_PRECEDENCE[stage] || [];
     var qc = (order && order.qc) || {};

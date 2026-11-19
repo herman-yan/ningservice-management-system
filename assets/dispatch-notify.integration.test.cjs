@@ -41,7 +41,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   T.afCommit('WN', ID, 'dispatch', { engineer: ENGINEER });
   const order = T.APP.warrantyOrders.find(o => o.id === ID);
-  assert.strictEqual(order.status, '未开工', '派单未改变工单状态');
+  assert.strictEqual(order.status, '已接单', '派单未改变工单状态');
   assert.strictEqual(order.engineer, ENGINEER, '责任工程师未写入');
 
   let text = '';
