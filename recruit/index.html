@@ -171,6 +171,16 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
 .vbot input{flex:1;min-width:0;padding:3px 8px;font-size:12px}
 .vchip{display:inline-block;background:var(--blue2);color:var(--blue);border-radius:5px;padding:0 5px;font-size:11px}
 .vnote{margin-top:6px;font-size:12px;color:var(--muted);background:var(--surface2);border-radius:6px;padding:5px 8px}
+.auto-in{background:linear-gradient(135deg,var(--accent2),var(--surface2));border:1px solid var(--accent);border-radius:11px;padding:13px;margin-bottom:12px}
+.auto-in h3{margin:0 0 6px;font-size:14px;color:var(--accent)}
+.auto-in p{margin:5px 0;font-size:12.5px;line-height:1.65;color:var(--text)}
+.bm{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;text-decoration:none;cursor:grab;user-select:none;border:1px solid var(--accent)}
+.bm:active{cursor:grabbing}
+.bm2{background:var(--blue);border-color:var(--blue)}
+.auto-in textarea{min-height:52px;font:11px/1.5 ui-monospace,Consolas,monospace;margin-top:6px}
+.inbox-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px}
+.inbox-row .btn{flex:none}
+.inbox-status{font-size:12px;color:var(--muted);flex:1;min-width:140px}
 </style>
 </head>
 <body>
@@ -241,6 +251,17 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
 
       <section class="card">
         <h2>3 · 简历数据源</h2>
+        <div class="auto-in">
+          <h3>⚡ 省掉「逐个点开、下载」：一键抓当前简历</h3>
+          <p>把下面的按钮<b>拖到浏览器书签栏</b>（显示书签栏：Ctrl+Shift+B）。之后在 BOSS 里点开任意候选人的在线简历页，点一下书签栏里的「抓简历」，当前页面文字就会自动送到本页简历库 —— <b>不用下载、不用复制粘贴、不用切回来</b>。每位 HR 在自己的浏览器拖一次即可，不依赖任何一台电脑、不需要登录任何工具。</p>
+          <p><a id="bmLink" class="bm" draggable="true" href="#" onclick="return false">📌 拖我到书签栏（抓简历）</a></p>
+          <p class="hint" style="margin-top:7px">书签抓的是当前网页上能看到的文字。若候选人只有「附件 PDF」且平台不展开正文，请用下面②的官方批量下载；书签抓不到图片 / 扫描件。</p>
+          <div class="inbox-row">
+            <button id="btnWatchDir" class="btn bm2">📂 监视「下载」文件夹</button>
+            <span id="watchStatus" class="inbox-status">未开启</span>
+          </div>
+          <p class="hint" style="margin-top:7px">② 附件 PDF 走官方批量：BOSS「人才库 / 沟通中」勾选多人 → 下载简历 → 打包 ZIP → 拖到本页，一次全部入库。开启「监视下载文件夹」后，新下载到该目录的简历文件会自动读入（需浏览器支持，仅在本机、不上传）。</p>
+        </div>
         <div class="tabs"><button data-tab="local" class="on">本地文件</button><button data-tab="api">官方 API（预留）</button></div>
         <div id="tabLocal">
           <div class="quick">
@@ -310,6 +331,8 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     <h3>使用说明与已知限制</h3>
     <h4>三步跑通</h4>
     <p>① 粘贴岗位 JD → 点「解析并生成规则」→ 在规则表里核对 / 调权重 / 设硬门槛；② 从聊天窗口复制简历粘贴到「快速入库」（或拖入 ZIP / 单份文件、点顶部「载入看板做 JD 匹配」）→ 自动入库并打分；③ 看右侧排名、在「入库简历库」标记状态与备注、展开证据、打印或导出。</p>
+    <h4>省掉逐个点开、下载（推荐给 HR）</h4>
+    <p>最省力的一条：<b>把「数据源」里那个书签按钮拖到浏览器书签栏</b>，以后在 BOSS 点开任意候选人的在线简历页，点一下书签栏的「抓简历」，当前页面文字就自动送到本页简历库并打分 —— 不用下载、不用复制粘贴、不用切回来。每条简历只在本机浏览器入库、不上传。<b>附件 PDF</b> 若平台不展开正文，用 BOSS 官方批量下载打成 ZIP 拖进本页；也可开启「监视下载文件夹」，以后下载到该目录的简历自动读入。每位 HR 各自拖一次书签即可，不需要在任何一台固定电脑上登录。</p>
     <h4>快速入库与入库简历库（对话场景）</h4>
     <p>在 BOSS 企业版与候选人沟通、拿到<b>附件简历 / 在线简历</b>后（平台自带「索要简历 / 下载 / 发送至邮箱」功能），复制简历文本粘贴到左侧「快速入库」框 —— <b>Ctrl+V 即自动解析、去重、打分并写入本机入库简历库</b>，右侧排名立刻更新；下载的 PDF / DOCX 可直接拖入，官方批量导出的 ZIP 也会自动增量入库。<br>库内可为每人标记<b>待筛 / 已邀约 / 面试中 / 已录用 / 淘汰</b>并写备注，支持按状态筛选、单条移除、导出 JSON 备份与导入恢复。重复简历（同一手机号 / 邮箱 / 姓名或全文一致）自动跳过，不再重复计分。<br><b>与顶部「候选人简历库」的区别</b>：顶部是随站点发布的 862 人结构化名册（只读，可搜索 / 筛选 / 导出 / 一键载入看板）；本面板是<b>你自己导入的简历全文，只存在本机浏览器</b>，不上传、不随站点发布。演示数据与站点名册均<b>不写入本机入库简历库</b>。</p>
     <h4>官方导出 ZIP（推荐路径）</h4>
@@ -1847,7 +1870,8 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       }).join('');
       var when = String(r.addedAt || '').slice(0, 16).replace('T', ' ');
       var src = r.source === 'zip' ? '官方导出 ZIP' : r.source === 'chat' ? '聊天粘贴' :
-        r.source === 'paste' ? '粘贴导入' : r.source === 'bosshi' ? '官方 API' : '本地文件';
+        r.source === 'paste' ? '粘贴导入' : r.source === 'bosshi' ? '官方 API' :
+        r.source === 'bookmark' ? '书签抓取' : r.source === 'watch' ? '下载文件夹' : '本地文件';
       return '<div class="vrow">' +
         '<div class="vtop"><span class="vname">' + esc(r.contact.name || r.filename) + '</span>' +
         '<span class="vsrc">' + esc(src) + ' · ' + esc(when) + '</span>' +
@@ -2016,7 +2040,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       '<div class="rhead"><div class="rank">' + (idx + 1) + '</div>' +
       '<div class="who"><div class="nm">' + esc(r.name || '姓名未识别') +
       ' <span class="badge b-' + esc(r.grade) + '">' + esc(r.grade) + '</span></div>' +
-      '<div class="fn">' + esc(r.filename) + ' · ' + esc(r.source === 'bosshi' ? '官方 API 代理' : r.source === 'demo' ? '演示数据' : r.source === 'zip' ? '官方导出 ZIP' : r.source === 'chat' ? '聊天粘贴' : r.source === 'bundled' ? '内置简历库' : '本地文件') +
+      '<div class="fn">' + esc(r.filename) + ' · ' + esc(r.source === 'bosshi' ? '官方 API 代理' : r.source === 'demo' ? '演示数据' : r.source === 'zip' ? '官方导出 ZIP' : r.source === 'chat' ? '聊天粘贴' : r.source === 'bookmark' ? '书签抓取' : r.source === 'watch' ? '下载文件夹' : r.source === 'bundled' ? '内置简历库' : '本地文件') +
       (r.status ? ' · <span class="vchip">' + esc(r.status) + '</span>' : '') +
       (r.addedAt ? ' · 入库 ' + esc(String(r.addedAt).slice(0, 10)) : '') +
       (r.confidence < 100 ? ' · 置信度 ' + r.confidence + '%' : '') + '</div></div>' +
@@ -2315,6 +2339,136 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       if (state.vault.length) logFile('简历库', '已从本机恢复 ' + state.vault.length + ' 份');
     });
     await vaultReady;
+
+    /* ===== 省掉「逐个点开、下载」：书签一键抓当前页 ===== */
+    (function setupBookmarklet() {
+      var a = $('bmLink'); if (!a) return;
+      var site = location.href.split('#')[0];
+      var code = "(function(){var t='';try{t=(window.getSelection()||'').toString().trim()}catch(e){}" +
+        "if(!t){try{t=(document.body.innerText||'').trim()}catch(e){}}" +
+        "if(!t){alert('未读取到页面文字；请先展开简历正文');return}" +
+        "if(t.length>180000){t=t.slice(0,180000)}" +
+        "var b;try{b=btoa(unescape(encodeURIComponent(t)))}catch(e){alert('编码失败:'+e.message);return}" +
+        "var w=window.open('" + site + "#resume='+b,'rsGrab');" +
+        "if(!w){alert('请允许弹出窗口后重试')}}" +
+        ")()";
+      a.setAttribute('href', 'javascript:' + code);
+    })();
+
+    function consumeResumeHash() {
+      var m = /[#&]resume=([A-Za-z0-9+\/=]+)/.exec(location.hash || '');
+      if (!m) return false;
+      var b = m[1].replace(/\s/g, '+'), text = null;
+      try { text = decodeURIComponent(escape(atob(b))); } catch (e) { try { text = atob(b); } catch (e2) { } }
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+      if (!text || !text.trim()) { logFile('书签抓取', '内容解码失败或为空', true); return true; }
+      var items = [{ text: text, filename: '书签抓取-' + new Date().toISOString().slice(0, 10) + '.txt', source: 'bookmark' }];
+      var qm = $('quickMsg'); if (qm) qm.textContent = '书签抓取 ' + text.length + ' 字，正在入库…';
+      ingest(items).then(function (r) {
+        if (qm) qm.textContent = '已入库 ' + r.added.length + ' 份' + (r.skipped.length ? '，跳过重复 ' + r.skipped.length + ' 份' : '') + ' · 右侧已重新打分';
+        var c = document.querySelector('.cols'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }).catch(function (e) { if (qm) qm.textContent = '入库失败：' + e.message; });
+      return true;
+    }
+    consumeResumeHash();
+    window.addEventListener('hashchange', consumeResumeHash);
+
+    /* ===== 监视下载文件夹：新下载的简历自动读入（本机，不上传） ===== */
+    var WDB = 'rs_watch_v1';
+    function openWDB() {
+      return new Promise(function (res, rej) {
+        if (!window.indexedDB) return rej(new Error('IndexedDB 不可用'));
+        var q; try { q = indexedDB.open(WDB, 1); } catch (e) { return rej(e); }
+        q.onupgradeneeded = function () { var d = q.result; if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv'); };
+        q.onsuccess = function () { res(q.result); };
+        q.onerror = function () { rej(q.error); };
+      });
+    }
+    function wget(k) {
+      return openWDB().then(function (d) {
+        return new Promise(function (res, rej) {
+          var t = d.transaction('kv', 'readonly'), r = t.objectStore('kv').get(k);
+          r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+          t.oncomplete = function () { d.close(); };
+        });
+      });
+    }
+    function wset(k, v) {
+      return openWDB().then(function (d) {
+        return new Promise(function (res, rej) {
+          var t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k);
+          t.oncomplete = function () { d.close(); res(true); }; t.onerror = function () { rej(t.error); };
+        });
+      });
+    }
+    function setWatch(s) { var el = $('watchStatus'); if (el) el.textContent = s; }
+
+    var watchRunning = false;
+    async function scanWatchDir(manual) {
+      if (watchRunning) return;
+      watchRunning = true;
+      try {
+        var h; try { h = await wget('dir'); } catch (e) { h = null; }
+        if (!h) { if (manual) setWatch('未选择文件夹'); return; }
+        var perm; try { perm = await h.queryPermission({ mode: 'read' }); } catch (e) { perm = 'prompt'; }
+        if (perm !== 'granted') {
+          if (!manual) return;
+          try { perm = await h.requestPermission({ mode: 'read' }); } catch (e) { }
+          if (perm !== 'granted') { setWatch('需重新授权：再点一次按钮'); return; }
+        }
+        var seen; try { seen = (await wget('seen')) || {}; } catch (e) { seen = {}; }
+        var added = 0, fail = 0, scanned = 0;
+        try {
+          for await (const entry of h.entries()) {
+            var name = entry[0], handle = entry[1];
+            if (!handle || handle.kind !== 'file') continue;
+            if (!/\.(txt|md|csv|json|docx|pdf|zip)$/i.test(name)) continue;
+            scanned++;
+            var f; try { f = await handle.getFile(); } catch (e) { continue; }
+            var key = name + '|' + f.lastModified + '|' + f.size;
+            if (seen[key]) continue;
+            seen[key] = 1;
+            try {
+              if (/\.zip$/i.test(name)) { await handleZip(f); }
+              else {
+                var text = await readFile(f);
+                if (text.trim().length < 10) throw new Error('内容为空');
+                var parts = /\.(csv|json)$/i.test(name) ? B.splitStructured(text, name) : null;
+                if (parts && parts.length > 1) parts.forEach(function (p) { addResume(p.text, p.name, 'watch'); });
+                else addResume(text, name, 'watch');
+              }
+              added++;
+            } catch (e) { fail++; logFile('↳ ' + name, '自动读入失败：' + e.message, true); }
+          }
+        } catch (e) { setWatch('扫描失败：' + e.message); return; }
+        try { await wset('seen', seen); } catch (e) { }
+        await flushIngest();
+        setWatch('已连接 · 每 20 秒检查 · 本次新增 ' + added + ' 份' + (fail ? ' · 失败 ' + fail : '') + ' · 已扫 ' + scanned + ' 个文件');
+      } finally { watchRunning = false; }
+    }
+
+    var btnWatch = $('btnWatchDir');
+    if (btnWatch) btnWatch.addEventListener('click', async function () {
+      if (!window.showDirectoryPicker) {
+        setWatch('浏览器不支持自动读取文件夹（需 Chrome / Edge 103+）；仍可用书签抓取或拖拽'); return;
+      }
+      try {
+        var h = await window.showDirectoryPicker({ id: 'rs-resume-watch', mode: 'read' });
+        await wset('dir', h); await wset('seen', {});
+        setWatch('已选择「' + h.name + '」· 正在扫描…');
+        await scanWatchDir(true);
+      } catch (e) { if (e && e.name !== 'AbortError') setWatch('选择失败：' + e.message); }
+    });
+
+    try {
+      var savedDir = await wget('dir');
+      if (savedDir) {
+        var p = await savedDir.queryPermission({ mode: 'read' });
+        setWatch(p === 'granted' ? '已连接 · 每 20 秒检查（保持本页打开）' : '权限待确认 · 点「监视下载文件夹」重新授权');
+        if (p === 'granted') scanWatchDir(false);
+      } else setWatch('未开启');
+    } catch (e) { setWatch('未开启'); }
+    setInterval(function () { scanWatchDir(false); }, 20000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
