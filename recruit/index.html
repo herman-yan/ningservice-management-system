@@ -181,6 +181,17 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
 .inbox-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px}
 .inbox-row .btn{flex:none}
 .inbox-status{font-size:12px;color:var(--muted);flex:1;min-width:140px}
+.share-box{background:linear-gradient(135deg,var(--blue2),var(--accent2));border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px}
+.share-box h3{margin:0 0 8px;font-size:14px}
+.share-box p{margin:5px 0;font-size:12.5px;line-height:1.65;color:var(--text)}
+.share-steps{counter-reset:st;margin:8px 0 0;padding:0;list-style:none}
+.share-steps li{position:relative;padding:6px 0 6px 30px;font-size:12.5px;line-height:1.6}
+.share-steps li:before{counter-increment:st;content:counter(st);position:absolute;left:0;top:6px;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;text-align:center;line-height:20px;font-weight:600}
+.share-merge{border:1.5px dashed var(--blue);border-radius:9px;padding:13px 10px;text-align:center;cursor:pointer;font-size:12.5px;background:var(--surface);transition:.15s;margin-top:8px}
+.share-merge:hover,.share-merge.over{background:var(--blue2);border-color:var(--accent)}
+.share-stat{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.6}
+.share-stat b{color:var(--accent)}
+.share-files{margin-top:6px;font-size:11.5px;color:var(--muted);max-height:80px;overflow:auto}
 </style>
 </head>
 <body>
@@ -300,7 +311,33 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
       </section>
 
       <section class="card">
-        <h2>5 · 选项</h2>
+        <h2>5 · 多人汇总发布（简历共享到本站）</h2>
+        <div class="share-box">
+          <h3>把大家的简历汇总成一份、发布到顶部简历库</h3>
+          <p>本站是静态页面，没法让每个人各自写入同一个库。用下面三步完成共享：<b>各 HR 导出自己的增量 → 汇总人合并成一份 → 一键发布到本站</b>。发布后所有人打开这个网址看到的就是同一份简历库。</p>
+          <ol class="share-steps">
+            <li>每位 HR 在 BOSS 批量下载简历、拖进本页第 3 块入库后，点下方<b>「① 导出我的增量」</b>，把下载到的 <code>增量_*.json</code> 发给汇总人。</li>
+            <li>汇总人把所有人的增量文件<b>一起拖进</b>下方虚线框 → 自动合并、按手机号/邮箱/姓名去重 → 点<b>「② 生成站点文件」</b>，下载 <code>resumes.json</code>。</li>
+            <li>把 <code>resumes.json</code> 交给管理员，运行仓库里的 <code>publish_resumes.py</code> 一键发布；全员刷新本站即见同一份。</li>
+          </ol>
+        </div>
+        <div class="row">
+          <button id="btnExportDelta" class="btn primary">① 导出我的增量</button>
+          <span id="deltaMsg" class="hint">把你本机的简历全文导出成增量文件</span>
+        </div>
+        <div id="shareMerge" class="share-merge">② 把所有人的「增量_*.json」拖到这里（可多选 / 可拖多份）</div>
+        <input id="shareMergeInput" type="file" multiple accept=".json" hidden>
+        <div class="share-files" id="shareFiles"></div>
+        <div class="row" style="margin-top:8px">
+          <button id="btnMakeSite" class="btn" disabled>② 生成站点文件 resumes.json</button>
+          <label class="switch"><input type="checkbox" id="shareMask" checked> 隐去姓名 / 手机 / 邮箱（公开站点建议勾选）</label>
+        </div>
+        <div id="shareStat" class="share-stat"></div>
+        <p class="hint" style="margin-top:8px">合并只在本机浏览器完成，不上传；去重键与入库库一致（手机 → 邮箱 → 姓名+学历+年限 → 全文）。勾选去识别化时，姓名改为「候选人 N」、手机/邮箱打码，避免把联系方式公开到站点。</p>
+      </section>
+
+      <section class="card">
+        <h2>6 · 选项</h2>
         <label class="switch"><input type="checkbox" id="optMask"> 去识别化（隐去姓名 / 电话 / 邮箱）</label>
         <div class="row">
           <button id="btnDemo" class="btn">载入演示数据</button>
@@ -337,6 +374,8 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     <p>在 BOSS 企业版与候选人沟通、拿到<b>附件简历 / 在线简历</b>后（平台自带「索要简历 / 下载 / 发送至邮箱」功能），复制简历文本粘贴到左侧「快速入库」框 —— <b>Ctrl+V 即自动解析、去重、打分并写入本机入库简历库</b>，右侧排名立刻更新；下载的 PDF / DOCX 可直接拖入，官方批量导出的 ZIP 也会自动增量入库。<br>库内可为每人标记<b>待筛 / 已邀约 / 面试中 / 已录用 / 淘汰</b>并写备注，支持按状态筛选、单条移除、导出 JSON 备份与导入恢复。重复简历（同一手机号 / 邮箱 / 姓名或全文一致）自动跳过，不再重复计分。<br><b>与顶部「候选人简历库」的区别</b>：顶部是随站点发布的 862 人结构化名册（只读，可搜索 / 筛选 / 导出 / 一键载入看板）；本面板是<b>你自己导入的简历全文，只存在本机浏览器</b>，不上传、不随站点发布。演示数据与站点名册均<b>不写入本机入库简历库</b>。</p>
     <h4>官方导出 ZIP（推荐路径）</h4>
     <p>在 BOSS 企业版「人才库 / 沟通中」勾选候选人 → 点【下载简历】→ 选 PDF，得到打包 ZIP；猎聘按套餐的简历下载额度同样可批量导出。<b>把 ZIP 直接拖进左侧即可</b>：自动展开逐个解析，支持中文（UTF-8 / GBK）文件名、嵌套压缩包，自动跳过目录、系统附带文件、加密与超限条目。平台导出的 <b>CSV / JSON 结构化数据包</b>会按行 / 按记录拆成多份候选人；含候选人字段表头的才拆，普通简历式 CSV 不会被误拆。<br>ZIP 全程用浏览器原生 <b>DecompressionStream</b> 解压，不引第三方库、不联网、不上传。加密压缩包（导出时设了密码）无法解析，会逐条提示；ZIP64 超大包与单份超 8MB 的条目会跳过，请在平台分批导出。</p>
+    <h4>多人汇总发布（把大家的简历共享到本站）</h4>
+    <p>本站是纯静态页面，多个 HR 无法各自写入同一份库。共享走「汇总 → 发布」两步：① <b>各 HR</b> 把批量下载的简历拖进本页入库后，点「5 · 多人汇总发布」里的<b>「导出我的增量」</b>，把 <code>增量_*.json</code> 发给汇总人；② <b>汇总人</b>把所有人增量<b>一起拖进</b>虚线框 → 自动按手机号 / 邮箱 / 姓名去重合并 → 点<b>「生成站点文件」</b>下载 <code>resumes.json</code>（默认隐去姓名与联系方式）→ 交给管理员运行仓库里的 <code>publish_resumes.py</code> 一键推送，全员刷新本站即见同一份。发布脚本只更新简历库数据文件，不动其它内容，并会自动校验格式、备份旧文件、轮询线上确认生效。</p>
     <h4>打分口径</h4>
     <p>硬门槛不满足 → 一票否决并归 0 分。其余规则按「完全命中 1.0 / 原文部分命中 0.6 / 未命中 0」乘权重，归一化到 0–100。<b>简历未体现的项目按 0 分计入分母</b>，但单列「待核实」并生成追问，不会写死成「不具备」。<b>置信度</b>= 可判定项权重占比，越低说明简历信息越缺。</p>
     <h4>已知限制</h4>
@@ -2300,6 +2339,102 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         ' 份简历，不可恢复。建议先点「导出备份」。')) return;
       state.vault = [];
       vaultSaveAll().then(function () { recompute(); renderVault(); logFile('简历库', '已清空'); });
+    });
+
+    /* ===== 多人汇总发布：导出增量 → 合并多份 → 生成站点 resumes.json ===== */
+    var mergeInputs = [];   // 已选择的增量 File 列表
+    var mergedRecords = []; // 合并结果（已生成站点文件时使用）
+    function renderShareFiles() {
+      var box = $('shareFiles'); if (!box) return;
+      box.textContent = mergeInputs.length
+        ? '已加入 ' + mergeInputs.length + ' 份：' + mergeInputs.map(function (f) { return f.name; }).join('、')
+        : '';
+    }
+    $('btnExportDelta').addEventListener('click', function () {
+      if (!state.vault.length) { $('deltaMsg').textContent = '本机库为空，先导入简历再导出'; return; }
+      var d = new Date(), stamp = d.getFullYear() +
+        ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) + '_' +
+        ('0' + d.getHours()).slice(-2) + ('0' + d.getMinutes()).slice(-2);
+      var payload = S.serializeBackup(state.vault, { from: '增量导出', count: state.vault.length });
+      dl(payload, '增量_' + stamp + '_' + state.vault.length + '份.json', 'application/json;charset=utf-8');
+      $('deltaMsg').textContent = '已导出 ' + state.vault.length + ' 份，发给汇总人';
+    });
+    function addMergeFiles(fileList) {
+      Array.prototype.forEach.call(fileList || [], function (f) {
+        if (!/\.json$/i.test(f.name)) return;
+        if (!mergeInputs.some(function (x) { return x.name === f.name && x.size === f.size; })) mergeInputs.push(f);
+      });
+      renderShareFiles();
+      $('btnMakeSite').disabled = mergeInputs.length === 0;
+      if (mergeInputs.length) $('shareStat').textContent = '已加入 ' + mergeInputs.length + ' 份增量，点「生成站点文件」开始合并。';
+    }
+    var sm = $('shareMerge'), smi = $('shareMergeInput');
+    sm.addEventListener('click', function () { smi.click(); });
+    smi.addEventListener('change', function () { addMergeFiles(this.files); this.value = ''; });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      sm.addEventListener(ev, function (e) { e.preventDefault(); sm.classList.add('over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      sm.addEventListener(ev, function (e) { e.preventDefault(); sm.classList.remove('over'); });
+    });
+    sm.addEventListener('drop', function (e) { addMergeFiles(e.dataTransfer.files); });
+    $('btnMakeSite').addEventListener('click', function () {
+      if (!mergeInputs.length) return;
+      var btn = this; btn.disabled = true; btn.textContent = '合并中…';
+      var mask = $('shareMask').checked;
+      var chain = Promise.resolve(), all = [], warns = [];
+      mergeInputs.forEach(function (f) {
+        chain = chain.then(function () {
+          return readTextSmart(f).then(function (txt) {
+            var p = S.parseBackup(txt);
+            if (!p.ok) { warns.push(f.name + '：' + p.error); return; }
+            all = all.concat(p.records);
+            if (p.warnings.length) warns.push(f.name + '：' + p.warnings.length + ' 条告警');
+          }).catch(function (e) { warns.push(f.name + '：' + e.message); });
+        });
+      });
+      chain.then(function () {
+        if (!all.length) { $('shareStat').textContent = '没有可合并的简历：' + warns.join('；'); return; }
+        var r = S.mergeRecords([], all.map(function (x) {
+          return { id: x.id, text: x.text, filename: x.filename, source: x.source, key: x.key,
+            contact: x.contact, status: x.status, note: x.note, addedAt: x.addedAt };
+        }), { updateLonger: true });
+        mergedRecords = r.records;
+        var seq = 1;
+        var items = r.records.map(function (rec, i) {
+          var name = rec.contact && rec.contact.name ? rec.contact.name : '';
+          var text = rec.text;
+          if (mask) {
+            name = '候选人 ' + (seq++);
+            text = S.safeStr(text)
+              .replace(/1[3-9]\d{9}/g, '***')
+              .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '***');
+          }
+          return {
+            id: 'hr-' + (rec.id || i),
+            filename: rec.filename,
+            text: text,
+            name: name,
+            job: '', age: '', city: '', labels: [rec.source || 'HR增量'],
+            lastTime: S.safeStr(rec.addedAt).slice(0, 10),
+            jobId: '', expectId: ''
+          };
+        });
+        var out = {
+          generatedAt: new Date().toISOString(),
+          source: 'HR 增量汇总（各 HR 批量下载 → 本机解析 → 汇总人合并去重' + (mask ? ' → 已去识别化' : '') + '）',
+          note: '本简历库由各 HR 从招聘平台官方导出后汇总，' + (mask ? '姓名与联系方式已脱敏。' : '含原始姓名，请仅在内部使用。'),
+          total: items.length,
+          items: items
+        };
+        dl(JSON.stringify(out, null, 2), 'resumes.json', 'application/json;charset=utf-8');
+        $('shareStat').innerHTML = '合并完成：共 <b>' + items.length + '</b> 份（新增 ' + r.added.length +
+          '，去重跳过 ' + r.skipped.length + (r.merged.length ? '，更新 ' + r.merged.length : '') +
+          '）。已下载 <b>resumes.json</b>，交给管理员运行 publish_resumes.py 发布。' +
+          (warns.length ? '<br>告警：' + esc(warns.join('；')) : '');
+      }).catch(function (e) {
+        $('shareStat').textContent = '合并失败：' + e.message;
+      }).then(function () { btn.disabled = false; btn.textContent = '② 生成站点文件 resumes.json'; });
     });
 
     document.querySelectorAll('.tabs button').forEach(function (b) {
