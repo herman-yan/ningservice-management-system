@@ -829,6 +829,95 @@ function afAuditHtml(o) {
       ${a.note ? '<br>备注：' + afEsc(a.note) : ''}</div>`).join('');
 }
 
+// ===== 备注明细：把一个工单上所有来源的备注汇总，详情与管理员总览共用 =====
+function afNoteEntries(kind, o) {
+  const out = [];
+  const add = (source, text, who, at) => {
+    const s = String(text == null ? '' : text).trim();
+    if (s) out.push({
+      kind: kind, id: o.id || '-',
+      customer: o.customerName || o.signedCustomer || '-',
+      source: source, text: s, who: who || '-', at: at || ''
+    });
+  };
+  add('中台备注', o.platformNote, '', '');
+  add('工程师进度备注', o.engineerProgressNote, o.engineer || '', '');
+  add('库房备注', o.warehouseNote, '', '');
+  add('旧件备注', o.oldPartNote, '', '');
+  add('业务复盘', o.reviewNote, '', '');
+  add('备注', o.remark, '', '');
+  (o.transferRequests || []).forEach(r => {
+    add('协同申请原因', r.reason, r.from, r.at);
+    add('协同审批说明', r.decisionNote, r.decidedBy, r.decidedAt);
+  });
+  if (o.qc && o.qc.rejectedBy) add('质检驳回原因', o.qc.rejectedBy.reason, o.qc.rejectedBy.name, o.qc.rejectedBy.at);
+  (o.audit || []).forEach(a => {
+    const tag = a.roleLabel || (typeof AFG !== 'undefined' && AFG.roleLabel ? AFG.roleLabel(a.role) : a.role) || '流转';
+    if (a.reason) add('操作原因（' + tag + '）', a.reason, a.actor, a.at);
+    if (a.note) add('流转备注（' + tag + '）', a.note, a.actor, a.at);
+  });
+  return out;
+}
+
+function afNotesHtml(entries) {
+  if (!entries.length) return '<div style="color:var(--text-secondary);font-size:13px;padding:6px 2px">该工单暂无备注。</div>';
+  return '<div style="display:grid;gap:8px">' + entries.map(n => `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+      <div style="font-size:12px;color:var(--text-secondary)">${afEsc(n.source)} · ${afEsc(n.who)} · ${afEsc(String(n.at).replace('T', ' ').slice(0, 16))}</div>
+      <div style="font-size:13px;margin-top:4px;white-space:pre-wrap">${afEsc(n.text)}</div>
+    </div>`).join('') + '</div>';
+}
+
+// 管理员专用：一览所有工单上、所有人写的备注
+let allNotesCache = [];
+function afAllNoteEntries() {
+  const out = [];
+  afAllOrders().forEach(x => afNoteEntries(x.kind, x.o).forEach(n => out.push(n)));
+  return out;
+}
+function renderAllNotesBody() {
+  const q = String((document.getElementById('allNotesSearch') || {}).value || '').trim().toLowerCase();
+  const type = String((document.getElementById('allNotesType') || {}).value || '');
+  const list = allNotesCache.filter(n =>
+    (!q || [n.id, n.customer, n.text, n.who, n.source].join(' ').toLowerCase().indexOf(q) >= 0) &&
+    (!type || n.source.indexOf(type) >= 0));
+  const el = document.getElementById('allNotesBody');
+  if (!el) return;
+  el.innerHTML = list.length ? list.map(n => `
+    <tr>
+      <td style="font-weight:600">${afEsc(n.id)}</td>
+      <td>${afEsc(n.customer)}</td>
+      <td>${afEsc(n.source)}</td>
+      <td>${afEsc(n.who)}</td>
+      <td style="white-space:pre-wrap;max-width:420px">${afEsc(n.text)}</td>
+      <td>${afEsc(String(n.at).replace('T', ' ').slice(0, 16))}</td>
+    </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:24px">没有匹配的备注</td></tr>';
+}
+function openAllNotes() {
+  if (ME.role !== 'ADMIN') return showUploadStatus('仅管理员可查看全部备注', 'error');
+  allNotesCache = afAllNoteEntries();
+  const types = Array.from(new Set(allNotesCache.map(n => n.source)));
+  showModal(`
+    <div class="modal-header"><div class="modal-title">全部工单备注（共 ${allNotesCache.length} 条）</div><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">中台、工程师、库房、旧件以及流转过程中填写的备注都在这里，可按工单、客户、填写人或内容搜索。</div>
+      <div class="filter-bar">
+        <input class="form-input search-input" id="allNotesSearch" placeholder="搜索工单/客户/备注人/内容" oninput="renderAllNotesBody()">
+        <select class="form-select" id="allNotesType" onchange="renderAllNotesBody()">
+          <option value="">全部类型</option>
+          ${types.map(t => `<option value="${afEsc(t)}">${afEsc(t)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>工单</th><th>客户</th><th>备注类型</th><th>填写人</th><th>内容</th><th>时间</th></tr></thead>
+        <tbody id="allNotesBody"></tbody>
+      </table></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>
+  `);
+  renderAllNotesBody();
+}
+
 // ===== 一单双工程师：工程师提报协同申请，管理员批准后新增协同工程师 =====
 function afEngineerNames(kind, o) {
   const arr = [o && (kind === 'WN' ? o.engineer : o.repairEngineer)].concat((o && o.coEngineers) || []);
@@ -1289,6 +1378,13 @@ function renderUnassigned(list) {
     }).join('') + '</div>';
 }
 
+// 总览编号列点击：直接打开该类工单的详情，查看全部备注与留痕
+function openOrderDetail(kind, id) {
+  if (kind === 'WN') return viewWarranty(id);
+  if (kind === 'NW') return viewNonWarranty(id);
+  return openUnclassifiedForm(id);
+}
+
 function renderAllRows(list) {
   if (!list.length) return '<tr><td colspan="10" style="text-align:center;color:var(--text-secondary);padding:40px">暂无匹配工单</td></tr>';
   return list.map(x => {
@@ -1300,7 +1396,7 @@ function renderAllRows(list) {
          <button class="btn btn-sm btn-outline" onclick="classifyUnclassified('${afEsc(o.id)}','NW')">归类保外</button>`
       : afActionButtons(x.kind, o);
     return `<tr>
-      <td style="font-weight:600">${afEsc(o.id || '-')}</td>
+      <td style="font-weight:600"><a href="javascript:void(0)" onclick="openOrderDetail('${x.kind}','${afEsc(o.id)}')" style="color:var(--primary,#2563eb);cursor:pointer;text-decoration:none" title="查看该工单详情与全部备注">${afEsc(o.id || '-')}</a></td>
       <td>${afCategoryBadge(x.cat)}</td>
       <td>${afEsc(o.customerName || o.signedCustomer || '-')}</td>
       <td>${afEsc(o.vehicleInfo || o.plateNumber || '-')}</td>
@@ -1326,6 +1422,7 @@ function renderAllOrders() {
         <button class="btn btn-primary" onclick="openNewOrderChooser()">+ 新建工单</button>
         <button class="btn btn-outline" onclick="sendPendingDigest(true)">🔔 推送待跟进提醒</button>
         ${ME.role === 'ADMIN' ? '<button class="btn btn-outline" onclick="openAtSettings()" title="设置派单提醒@名单">⚙ 钉钉@设置</button>' : ''}
+        ${ME.role === 'ADMIN' ? '<button class="btn btn-outline" onclick="openAllNotes()" title="查看所有工单的全部备注">📝 全部备注</button>' : ''}
         <button class="btn btn-outline" onclick="afReloadSeedData()" title="清空本机数据并重新载入站点台账">⟳ 重新载入台账</button>
       </div>
     </div>
@@ -2253,15 +2350,10 @@ function viewWarranty(id) {
           ${o.settleWorkers.map((w, i) => `<div class="detail-field"><div class="detail-field-label">工程师 ${i + 1}</div><div class="detail-field-value">${afEsc(w.engineer || '-')} · 工时 ${afEsc(w.hours || '-')} · 里程 ${afEsc(w.mileage || '-')}</div></div>`).join('')}
         </div>
       </div>` : ''}
-      ${(o.platformNote||o.warehouseNote||o.oldPartNote) ? `
       <div class="detail-section">
-        <div class="detail-section-title">📝 备注</div>
-        <div class="detail-grid">
-          ${o.platformNote?`<div class="detail-field"><div class="detail-field-label">中台备注</div><div class="detail-field-value">${o.platformNote}</div></div>`:''}
-          ${o.warehouseNote?`<div class="detail-field"><div class="detail-field-label">库房备注</div><div class="detail-field-value">${o.warehouseNote}</div></div>`:''}
-          ${o.oldPartNote?`<div class="detail-field"><div class="detail-field-label">旧件备注</div><div class="detail-field-value">${o.oldPartNote}</div></div>`:''}
-        </div>
-      </div>` : ''}
+        <div class="detail-section-title">📝 备注明细（全部）</div>
+        ${afNotesHtml(afNoteEntries('WN', o))}
+      </div>
       <div class="detail-section">
         <div class="detail-section-title">🔍 质检事实与操作留痕</div>
         ${afQcFactsHtml(o)}
@@ -2335,14 +2427,10 @@ function viewNonWarranty(id) {
           <div class="detail-field"><div class="detail-field-label">宁德是否开具发票</div><div class="detail-field-value">${o.catlInvoice||'-'}</div></div>
         </div>
       </div>
-      ${(o.reviewNote||o.remark) ? `
       <div class="detail-section">
-        <div class="detail-section-title">📝 备注</div>
-        <div class="detail-grid">
-          ${o.reviewNote?`<div class="detail-field"><div class="detail-field-label">业务复盘记录</div><div class="detail-field-value">${o.reviewNote}</div></div>`:''}
-          ${o.remark?`<div class="detail-field"><div class="detail-field-label">备注</div><div class="detail-field-value">${o.remark}</div></div>`:''}
-        </div>
-      </div>` : ''}
+        <div class="detail-section-title">📝 备注明细（全部）</div>
+        ${afNotesHtml(afNoteEntries('NW', o))}
+      </div>
       <div class="detail-section">
         <div class="detail-section-title">🔍 质检事实与操作留痕</div>
         ${afQcFactsHtml(o)}
@@ -2404,61 +2492,112 @@ function confirmDispatchWarranty(id) {
   afCommit('WN', id, 'dispatch', { engineer: eng, note: '派单给 ' + eng + (note ? '；中台备注：' + note : '') });
 }
 
-// 报单步骤：记录 GSS 信息，以及最多三组参与维修工程师的工时数与里程数
-function settleWarranty(id) {
+// 报单步骤：记录 GSS 信息，以及参与维修工程师的工时数与里程数。
+// 默认只显示一组；需要多人协作时点「+」逐组追加，已填内容会自动保留。
+let settleWorkerCount = 1;
+let settleDraft = null;
+
+function settleNames(o) {
+  return Array.from(new Set([].concat(APP.engineers || [], [o.engineer, o.repairEngineer], o.coEngineers || []).filter(Boolean)));
+}
+
+function settleWorkerBlock(id, i, names) {
+  const w = (settleDraft && settleDraft.workers && settleDraft.workers[i]) || {};
+  const name = w.engineer || (i === 0 ? (settleDraft.defaultEngineer || '') : '');
+  return `
+    <div class="settle-worker" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:600;font-size:13px">参与维修工程师 ${i + 1}</div>
+        ${i > 0 ? `<button type="button" class="btn btn-sm btn-outline" onclick="removeSettleWorkerRow('${afEsc(id)}',${i})">删除本组</button>` : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:8px">
+        <select class="form-select" id="settle_worker_${i}">
+          <option value="">-- 请选择 --</option>
+          ${names.map(n => `<option value="${afEsc(n)}" ${name === n ? 'selected' : ''}>${afEsc(n)}</option>`).join('')}
+        </select>
+        <input class="form-input" type="number" step="0.1" id="settle_hours_${i}" value="${afEsc(w.hours || '')}" placeholder="工时数">
+        <input class="form-input" type="number" step="0.1" id="settle_mileage_${i}" value="${afEsc(w.mileage || '')}" placeholder="里程数">
+      </div>
+    </div>`;
+}
+
+function renderSettleModal(id) {
   const o = APP.warrantyOrders.find(x => x.id === id);
-  const saved = Array.isArray(o.settleWorkers) ? o.settleWorkers.slice(0, 3) : [];
-  const names = Array.from(new Set([].concat(APP.engineers || [], [o.engineer, o.repairEngineer], o.coEngineers || []).filter(Boolean)));
-  const workerBlock = i => {
-    const w = saved[i] || {};
-    const name = w.engineer || (i === 0 ? (o.engineer || '') : '');
-    return `
-      <div class="form-group full" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:4px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px">参与维修工程师 ${i + 1}</div>
-        <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:8px">
-          <select class="form-select" id="settle_worker_${i}">
-            <option value="">-- 请选择 --</option>
-            ${names.map(n => `<option value="${afEsc(n)}" ${name === n ? 'selected' : ''}>${afEsc(n)}</option>`).join('')}
-          </select>
-          <input class="form-input" type="number" step="0.1" id="settle_hours_${i}" value="${w.hours || ''}" placeholder="工时数">
-          <input class="form-input" type="number" step="0.1" id="settle_mileage_${i}" value="${w.mileage || ''}" placeholder="里程数">
-        </div>
-      </div>`;
-  };
-  const html = `
+  if (!o) return;
+  const d = settleDraft || {};
+  const names = settleNames(o);
+  const blocks = [];
+  for (let i = 0; i < settleWorkerCount; i++) blocks.push(settleWorkerBlock(id, i, names));
+  showModal(`
     <div class="modal-header"><div class="modal-title">报单 - ${o.id}</div><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group"><label class="form-label">报单员</label>
-          <select class="form-select" id="settle_reporter">
-            <option value="">-- 请选择 --</option>
-            ${APP.reporters.map(r => `<option value="${r}" ${o.reporter===r?'selected':''}>${r}</option>`).join('')}
-          </select>
+          <select class="form-select" id="settle_reporter"><option value="">-- 请选择 --</option>${APP.reporters.map(r => `<option value="${afEsc(r)}" ${d.reporter === r ? 'selected' : ''}>${afEsc(r)}</option>`).join('')}</select>
         </div>
-        <div class="form-group"><label class="form-label">GSS工单号</label><input class="form-input" id="settle_gssOrderNo" value="${afEsc(o.gssOrderNo||'')}"></div>
-        <div class="form-group"><label class="form-label">GSS总费用(元)</label><input class="form-input" type="number" id="settle_gssFee" value="${o.gssFee||''}"></div>
-        ${workerBlock(0)}${workerBlock(1)}${workerBlock(2)}
+        <div class="form-group"><label class="form-label">GSS工单号</label><input class="form-input" id="settle_gssOrderNo" value="${afEsc(d.gssOrderNo || '')}"></div>
+        <div class="form-group"><label class="form-label">GSS总费用(元)</label><input class="form-input" type="number" id="settle_gssFee" value="${afEsc(d.gssFee || '')}"></div>
       </div>
+      <div id="settleWorkerList">${blocks.join('')}</div>
+      <button type="button" class="btn btn-outline" style="margin-top:10px" onclick="addSettleWorkerRow('${afEsc(id)}')">+ 添加参与维修工程师</button>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" onclick="confirmSettleWarranty('${id}')">确认报单</button>
+      <button class="btn btn-primary" onclick="confirmSettleWarranty('${afEsc(id)}')">确认报单</button>
     </div>
-  `;
-  showModal(html);
+  `);
+}
+
+function settleWarranty(id) {
+  const o = APP.warrantyOrders.find(x => x.id === id);
+  if (!o) return;
+  const saved = Array.isArray(o.settleWorkers) ? o.settleWorkers.slice() : [];
+  settleWorkerCount = Math.max(1, saved.length);
+  settleDraft = {
+    reporter: o.reporter || '',
+    gssOrderNo: o.gssOrderNo || '',
+    gssFee: o.gssFee || '',
+    defaultEngineer: o.engineer || '',
+    workers: saved.length ? saved.slice(0, settleWorkerCount) : [{ engineer: o.engineer || '', hours: '', mileage: '' }]
+  };
+  renderSettleModal(id);
+}
+
+function collectSettleDraft() {
+  if (!settleDraft) settleDraft = { workers: [] };
+  const val = sid => (document.getElementById(sid) || {}).value || '';
+  settleDraft.reporter = val('settle_reporter');
+  settleDraft.gssOrderNo = val('settle_gssOrderNo');
+  settleDraft.gssFee = val('settle_gssFee');
+  const workers = [];
+  for (let i = 0; i < settleWorkerCount; i++) {
+    workers.push({ engineer: val('settle_worker_' + i), hours: val('settle_hours_' + i), mileage: val('settle_mileage_' + i) });
+  }
+  settleDraft.workers = workers;
+}
+
+function addSettleWorkerRow(id) {
+  collectSettleDraft();
+  settleWorkerCount++;
+  renderSettleModal(id);
+}
+
+function removeSettleWorkerRow(id, i) {
+  collectSettleDraft();
+  if (settleWorkerCount <= 1) return;
+  settleDraft.workers.splice(i, 1);
+  settleWorkerCount--;
+  renderSettleModal(id);
 }
 
 function confirmSettleWarranty(id) {
   const o = APP.warrantyOrders.find(x => x.id === id);
-  const val = sid => (document.getElementById(sid) || {}).value || '';
-  o.reporter = val('settle_reporter');
-  o.gssOrderNo = val('settle_gssOrderNo') || o.gssOrderNo || '';
-  o.gssFee = val('settle_gssFee');
-  o.settleWorkers = [0, 1, 2].map(i => ({
-    engineer: val('settle_worker_' + i),
-    hours: val('settle_hours_' + i),
-    mileage: val('settle_mileage_' + i)
-  })).filter(w => w.engineer || w.hours || w.mileage);
+  if (!o) return;
+  collectSettleDraft();
+  o.reporter = settleDraft.reporter;
+  o.gssOrderNo = settleDraft.gssOrderNo || o.gssOrderNo || '';
+  o.gssFee = settleDraft.gssFee;
+  o.settleWorkers = settleDraft.workers.filter(w => w.engineer || w.hours || w.mileage);
   // 旧字段（总费用/保外成交金额）不再录入，但保留历史值不被清空
   o.settledDate = todayStr();
   const who = o.settleWorkers.map(w => w.engineer).filter(Boolean).join('、') || '-';

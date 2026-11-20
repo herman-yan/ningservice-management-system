@@ -30,9 +30,10 @@ const HANDLES = {
     'confirmDispatchWarranty', 'afOpenQcModal', 'afSubmitQc', 'afSubmitQc',
     'openEngineerNote', 'saveEngineerNote', 'openTransferRequest', 'submitTransferRequest',
     'afPendingTransfers', 'openTransferDecision', 'confirmTransferDecision',
-    'settleWarranty', 'confirmSettleWarranty', 'afFindOrder', 'afWarranty',
-    'afUnassignedOrders', 'afAcceptedPending', 'renderAcceptedPending', 'renderUnassigned',
-    'afActionButtons', 'renderAllOrders', 'viewWarranty'
+    'settleWarranty', 'addSettleWorkerRow', 'removeSettleWorkerRow', 'confirmSettleWarranty',
+    'afFindOrder', 'afWarranty', 'afNoteEntries', 'openAllNotes', 'renderAllNotesBody',
+    'openOrderDetail', 'afUnassignedOrders', 'afAcceptedPending', 'renderAcceptedPending', 'renderUnassigned',
+    'afActionButtons', 'renderAllOrders', 'renderAllRows', 'viewWarranty'
   ]
 };
 
@@ -237,22 +238,28 @@ const seedData = {
     return `${status()} / 终检人=张峻（与自检异人）`;
   });
 
-  await step(13, '报单员报单：GSS + 两名工程师工时/里程 → 已报单', () => {
+  await step(13, '报单员报单：默认一组，点+追加第二名工程师 → 已报单', () => {
     setRole('王鹏', 'REPORTER');
     T.afOpenAction('WN', 'WN-000001', 'settle');
-    const html = H.get('modalContent').innerHTML;
-    check(html.indexOf('参与维修工程师 1') >= 0 && html.indexOf('settle_hours_2') >= 0, '报单弹窗缺工时/里程字段');
+    let html = H.get('modalContent').innerHTML;
+    check(html.indexOf('参与维修工程师 1') >= 0 && html.indexOf('settle_hours_0') >= 0, '默认组缺工时字段');
+    check(html.indexOf('settle_worker_1') < 0, '默认不应出现第二组');
+    check(html.indexOf('addSettleWorkerRow') >= 0, '缺少+追加按钮');
     set('settle_reporter', '王鹏');
     set('settle_gssOrderNo', 'GSS-20261120-001');
     set('settle_gssFee', '3200');
     set('settle_worker_0', '刘珍'); set('settle_hours_0', '3.5'); set('settle_mileage_0', '12');
+    T.addSettleWorkerRow('WN-000001');
+    html = H.get('modalContent').innerHTML;
+    check(html.indexOf('settle_worker_1') >= 0, '点+后未追加第二组');
+    check(html.indexOf('removeSettleWorkerRow') >= 0, '追加组缺删除入口');
     set('settle_worker_1', '罗永豪'); set('settle_hours_1', '2.5'); set('settle_mileage_1', '8');
     T.confirmSettleWarranty('WN-000001');
     check(status() === '已报单', '报单后状态不对：' + status());
     check(order().settleWorkers.length === 2, '参与维修工程师未保存两人');
     check(order().settleWorkers[1].hours === '2.5' && order().settleWorkers[1].mileage === '8', '工时/里程未保存');
     check(order().gssOrderNo === 'GSS-20261120-001', 'GSS工单号未保存');
-    return `${status()} / 2 人分工已记录`;
+    return `${status()} / 默认1组→追加至2组并保存`;
   });
 
   await step(14, '财务结清 → 已结清（终态）', () => {
@@ -282,13 +289,46 @@ const seedData = {
     return `${actions.length} 条留痕：${actions.join(' → ')}`;
   });
 
-  await step(16, '详情展示双工程师、备注、报单分工', () => {
+  await step(16, '详情展示双工程师、全部备注明细、报单分工', () => {
     setRole('赵轩', 'ADMIN');
     T.viewWarranty('WN-000001');
     const html = H.get('modalContent').innerHTML || '';
-    ['刘珍', '罗永豪', '参与维修', '工程师备注', '中台备注', 'GSS-20261120-001']
+    ['刘珍', '罗永豪', '参与维修', '备注明细（全部）', '中台备注', '工程师进度备注',
+      '等待BMS备件', 'GSS-20261120-001']
       .forEach(k => check(html.indexOf(k) >= 0, '详情缺 ' + k));
-    return '双人+备注+报单信息均可见';
+    const notes = T.afNoteEntries('WN', order());
+    check(notes.length >= 8, '备注条目过少：' + notes.length);
+    check(notes.some(n => n.source === '工程师进度备注' && n.who === '刘珍'), '工程师备注未归集到本人');
+    return `${notes.length} 条备注集中展示`;
+  });
+
+  await step(17, '点击总览工单编号可打开详情', () => {
+    const rows = T.renderAllRows([{ o: order(), kind: 'WN', cat: '保内' }]);
+    check(rows.indexOf("openOrderDetail('WN','WN-000001')") >= 0, '编号列未做成可点击');
+    T.openOrderDetail('WN', 'WN-000001');
+    check((H.get('modalContent').innerHTML || '').indexOf('备注明细（全部）') >= 0, '点编号后未打开详情');
+    return '编号可点开详情';
+  });
+
+  await step(18, '管理员「全部备注」一览所有人备注并可筛选', () => {
+    setRole('赵轩', 'ADMIN');
+    const page = T.renderAllOrders();
+    check(page.indexOf('openAllNotes()') >= 0, '总览缺管理员备注入口');
+    setRole('刘珍', 'TECHNICIAN');
+    check(T.renderAllOrders().indexOf('openAllNotes()') < 0, '非管理员不应看到入口');
+    setRole('赵轩', 'ADMIN');
+    T.openAllNotes();
+    check((H.get('modalContent').innerHTML || '').indexOf('全部工单备注') >= 0, '未打开备注总览');
+    const body = H.get('allNotesBody').innerHTML || '';
+    check(body.indexOf('WN-000001') >= 0 && body.indexOf('等待BMS备件') >= 0, '备注表未列出工程师备注');
+    check(body.indexOf('优先测绝缘') >= 0, '备注表未列出中台备注');
+    set('allNotesSearch', '罗永豪');
+    T.renderAllNotesBody();
+    check(H.get('allNotesBody').innerHTML.indexOf('WN-000001') >= 0, '按人筛选失效');
+    set('allNotesSearch', '一个不存在的关键词');
+    T.renderAllNotesBody();
+    check(H.get('allNotesBody').innerHTML.indexOf('没有匹配的备注') >= 0, '空结果提示缺失');
+    return '全员备注可查、可按人/内容筛选';
   });
 
   console.log('\n----------------------------------------');

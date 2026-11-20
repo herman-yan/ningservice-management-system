@@ -37,6 +37,7 @@ const HANDLES = {
     'afActionButtons', 'openEngineerNote', 'saveEngineerNote', 'afOpenQcModal',
     'openTransferRequest', 'submitTransferRequest', 'afPendingTransfers',
     'openTransferDecision', 'confirmTransferDecision', 'afFindOrder', 'settleWarranty',
+    'addSettleWorkerRow', 'afNoteEntries', 'openAllNotes', 'openOrderDetail',
     'openWarrantyForm', 'saveWarranty', 'confirmSettleWarranty',
     'afWarranty', 'renderAllRows', 'viewWarranty']
 };
@@ -162,22 +163,24 @@ const HANDLES = {
   });
 
   console.log('\n== 报单步骤 ==');
-  await ok('报单弹窗含三组参与维修工程师且去掉旧费用输入框', () => {
+  await ok('报单弹窗默认一组工程师，点+可追加', () => {
     A.T.settleWarranty('WN-U003');
-    const html = A.get('modalContent').innerHTML;
+    let html = A.get('modalContent').innerHTML;
     assert.ok(html.indexOf('报单 - WN-U003') >= 0, '标题未改为报单');
     assert.ok(html.indexOf('确认报单') >= 0, '按钮未改为确认报单');
     assert.ok(html.indexOf('settle_gssOrderNo') >= 0);
     assert.ok(html.indexOf('settle_reporter') >= 0);
-    [0, 1, 2].forEach(i => {
-      assert.ok(html.indexOf('settle_worker_' + i) >= 0, '缺少工程师 ' + (i + 1));
-      assert.ok(html.indexOf('settle_hours_' + i) >= 0, '缺少工时数 ' + (i + 1));
-      assert.ok(html.indexOf('settle_mileage_' + i) >= 0, '缺少里程数 ' + (i + 1));
-    });
+    assert.ok(html.indexOf('settle_worker_0') >= 0, '缺默认第一组');
+    assert.ok(html.indexOf('settle_worker_1') < 0, '默认不应直接出现第二组');
+    assert.ok(html.indexOf('addSettleWorkerRow') >= 0, '缺少+追加按钮');
     assert.ok(html.indexOf('settle_totalFee') < 0, '总费用仍在录入');
     assert.ok(html.indexOf('settle_outAmt') < 0, '保外成交金额仍在录入');
+    A.T.addSettleWorkerRow('WN-U003');
+    html = A.get('modalContent').innerHTML;
+    assert.ok(html.indexOf('settle_worker_1') >= 0, '+后未出现第二组');
+    assert.ok(html.indexOf('removeSettleWorkerRow') >= 0, '新增组缺删除入口');
   });
-  await ok('报单保存三组工程师数据并把状态改为已报单', () => {
+  await ok('报单保存追加的工程师数据并把状态改为已报单', () => {
     const o = A.T.afFindOrder('WN', 'WN-U003');
     o.status = '已竣工';
     A.setInput('settle_worker_0', '刘珍');
