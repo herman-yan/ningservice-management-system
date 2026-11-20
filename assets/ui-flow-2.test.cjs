@@ -13,7 +13,9 @@ function seed(role, name) {
     station_mgmt_data: {
       warrantyOrders: [
         { id: 'WN-U001', registerDate: '2026-11-20', customerName: '测试客户', barcode: '123456789012',
-          vehicleInfo: '123456789012', faultDesc: '检修', status: '未派工', engineer: '', platformNote: '' },
+          vehicleInfo: '123456789012', faultDesc: '检修', status: '未派工', engineer: '', platformNote: '待派单先联系客户' },
+        { id: 'WN-U004', registerDate: '2026-11-19', customerName: '已终止客户', barcode: '123456789015',
+          vehicleInfo: '123456789015', faultDesc: '终止单', status: '已终止', engineer: '', platformNote: '终止单不应露出' },
         { id: 'WN-U002', registerDate: '2026-11-20', customerName: '测试客户2', barcode: '123456789013',
           vehicleInfo: '123456789013', faultDesc: '在修工单', status: '在修', engineer: '刘珍',
           platformNote: '中台交代：先做绝缘测试' },
@@ -31,10 +33,11 @@ function seed(role, name) {
 
 const HANDLES = {
   read: ['APP', 'ME'],
-  fns: ['renderAllOrders', 'renderAcceptedPending', 'afUnassignedOrders', 'afAllOrders',
+  fns: ['renderAllOrders', 'renderAcceptedPending', 'renderUnassigned', 'afUnassignedOrders', 'afAllOrders',
     'afActionButtons', 'openEngineerNote', 'saveEngineerNote', 'afOpenQcModal',
     'openTransferRequest', 'submitTransferRequest', 'afPendingTransfers',
     'openTransferDecision', 'confirmTransferDecision', 'afFindOrder', 'settleWarranty',
+    'openWarrantyForm', 'saveWarranty', 'confirmSettleWarranty',
     'afWarranty', 'renderAllRows', 'viewWarranty']
 };
 
@@ -55,6 +58,22 @@ const HANDLES = {
   await ok('待跟进卡片展示中台备注', () => {
     const html = D.T.renderAcceptedPending(D.T.afAllOrders().filter(x => x.o.id === 'WN-U002'));
     assert.ok(html.indexOf('中台备注：中台交代：先做绝缘测试') >= 0);
+  });
+  await ok('未派工卡片展示备注且不再露出已终止单', () => {
+    const html = D.T.renderUnassigned(D.T.afUnassignedOrders());
+    assert.ok(html.indexOf('中台备注：待派单先联系客户') >= 0, '未派工卡片缺备注');
+    assert.ok(html.indexOf('WN-U004') < 0, '已终止单仍出现在待派区');
+    assert.strictEqual(D.T.afUnassignedOrders().filter(x => x.o.status === '已终止').length, 0);
+  });
+  await ok('新建工单可填写备注并保存', () => {
+    D.T.openWarrantyForm();
+    D.setInput('f_wn_customerName', '备注测试客户');
+    D.setInput('f_wn_faultDesc', '建单时填写备注');
+    D.setInput('f_wn_platformNote', '建单备注：等待客户确认时间');
+    D.T.saveWarranty('');
+    const created = D.T.APP.warrantyOrders.find(o => o.customerName === '备注测试客户');
+    assert.ok(created, '未创建新单');
+    assert.strictEqual(created.platformNote, '建单备注：等待客户确认时间');
   });
 
   console.log('\n== 在修与自检 ==');
@@ -142,12 +161,46 @@ const HANDLES = {
     assert.strictEqual(o.transferRequests[0].status, '已驳回');
   });
 
-  console.log('\n== 结算步骤 ==');
-  await ok('GSS工单号改在结算步骤录入', () => {
+  console.log('\n== 报单步骤 ==');
+  await ok('报单弹窗含三组参与维修工程师且去掉旧费用输入框', () => {
     A.T.settleWarranty('WN-U003');
     const html = A.get('modalContent').innerHTML;
+    assert.ok(html.indexOf('报单 - WN-U003') >= 0, '标题未改为报单');
+    assert.ok(html.indexOf('确认报单') >= 0, '按钮未改为确认报单');
     assert.ok(html.indexOf('settle_gssOrderNo') >= 0);
     assert.ok(html.indexOf('settle_reporter') >= 0);
+    [0, 1, 2].forEach(i => {
+      assert.ok(html.indexOf('settle_worker_' + i) >= 0, '缺少工程师 ' + (i + 1));
+      assert.ok(html.indexOf('settle_hours_' + i) >= 0, '缺少工时数 ' + (i + 1));
+      assert.ok(html.indexOf('settle_mileage_' + i) >= 0, '缺少里程数 ' + (i + 1));
+    });
+    assert.ok(html.indexOf('settle_totalFee') < 0, '总费用仍在录入');
+    assert.ok(html.indexOf('settle_outAmt') < 0, '保外成交金额仍在录入');
+  });
+  await ok('报单保存三组工程师数据并把状态改为已报单', () => {
+    const o = A.T.afFindOrder('WN', 'WN-U003');
+    o.status = '已竣工';
+    A.setInput('settle_worker_0', '刘珍');
+    A.setInput('settle_hours_0', '3.5');
+    A.setInput('settle_mileage_0', '120');
+    A.setInput('settle_worker_1', '罗永豪');
+    A.setInput('settle_hours_1', '2');
+    A.setInput('settle_mileage_1', '80');
+    A.setInput('settle_gssFee', '9000');
+    A.T.confirmSettleWarranty('WN-U003');
+    assert.strictEqual(o.status, '已报单', '状态未改名');
+    assert.strictEqual(o.settleWorkers.length, 2);
+    assert.strictEqual(o.settleWorkers[0].hours, '3.5');
+    assert.strictEqual(o.settleWorkers[1].mileage, '80');
+    assert.strictEqual(o.gssFee, '9000');
+  });
+  await ok('旧状态已结算在列表里显示为已报单', () => {
+    const legacy = A.T.afFindOrder('WN', 'WN-U004');
+    legacy.status = '已结算';
+    const html = A.T.renderAllRows(A.T.afAllOrders().filter(x => x.o.id === 'WN-U004'));
+    assert.ok(html.indexOf('已报单') >= 0, '未显示新状态名');
+    assert.ok(html.indexOf('原「已结算」') >= 0, '未保留旧状态留痕');
+    legacy.status = '已终止';
   });
 
   console.log('\n----------------------------------------');

@@ -11,12 +11,12 @@
 
   // ===== 1. 岗位与可见范围 =====
   var ROLES = {
-    REPORTER: { label: '报单员', scopeHint: '负责建单、报单与结算信息录入。' },
+    REPORTER: { label: '报单员', scopeHint: '负责建单与报单信息录入。' },
     DISPATCHER: { label: '调度', scopeHint: '跨保内、保外与待判定工单统一查询、调度、审计和下钻。' },
     TECHNICIAN: { label: '维修技师', scopeHint: '技师只能查看指派给自己的工单。' },
     WAREHOUSE: { label: '库管', scopeHint: '库房与采购只能查看已关联采购单/订货单的工单。' },
     PURCHASER: { label: '采购', scopeHint: '库房与采购只能查看已关联采购单/订货单的工单。' },
-    FINANCE: { label: '财务', scopeHint: '财务角色只能查看已竣工、已结算、已结清或已关闭的保外工单；保内工单不产生收费，不在财务可见范围内。' },
+    FINANCE: { label: '财务', scopeHint: '财务角色只能查看已竣工、已报单、已结清或已关闭的保外工单；保内工单不产生收费，不在财务可见范围内。' },
     AUDITOR: { label: '监管员', scopeHint: '全量只读：工单合规确认与存档，全量留痕可回放。' },
     QUALITY_INSPECTOR: { label: '专职质检员', scopeHint: '终检签署、技术否决，独立把守交付质量；不参与自检与班组复检。' },
     ADMIN: { label: '管理员', scopeHint: '本站全部工单与配置。' }
@@ -57,7 +57,7 @@
     if (role === 'FINANCE') {
       return list.filter(function (o) {
         var s = o.status;
-        var settled = s === '维修完成' || s === '待复检' || s === '待终检' || s === '已竣工' || s === '已结算' || s === '已结清' || s === '关闭工单';
+        var settled = s === '维修完成' || s === '待复检' || s === '待终检' || s === '已竣工' || s === '已报单' || s === '已结算' || s === '已结清' || s === '关闭工单';
         // 保内不产生收费
         return settled && o._type !== '保内' && o.warrantyType !== 'IN_WARRANTY';
       });
@@ -89,7 +89,7 @@
   // 用于身份切换下拉：台账里出现过的人名一定能被选中。
   // 过滤掉「无」「/」「-」等占位值与非姓名数值，以及被误填进姓名字段的状态词。
   var NAME_PLACEHOLDER = /^(无|没有|未知|待定|待分配|待派工|未署名|未指派|未分配|暂无|空|其他|其它|全部|合计|小计|总计|none|null|n\/a|na|-{1,}|\/{1,})$/i;
-  var NAME_NOT_PERSON = /^(终止|中止|结束|已完成|未完成|进行中|维修中|处理中|已取消|已作废|已关闭|关闭工单|已结算|已结清|已竣工|待复检|待终检|离职|在职|停用|启用|正常|异常|是|否|有|没有)$/;
+  var NAME_NOT_PERSON = /^(终止|中止|结束|已完成|未完成|进行中|维修中|处理中|已取消|已作废|已关闭|关闭工单|已报单|已结算|已结清|已竣工|待复检|待终检|离职|在职|停用|启用|正常|异常|是|否|有|没有)$/;
   function isRealName(v) {
     var n = normName(v);
     if (!n) return false;
@@ -175,7 +175,7 @@
   // transition: { action 动作标识, label 按钮文案, to 目标状态, roles 允许岗位, stage 质检阶段(可选) }
   var WN_FLOW = {
     version: 'CETT-WN-FLOW-v3', effectiveAt: '2026-11-19',
-    states: ['未派工', '已接单', '在修', '待质检终检', '驳回待重检', '已竣工', '已结算', '已结清', '已终止'],
+    states: ['未派工', '已接单', '在修', '待质检终检', '驳回待重检', '已竣工', '已报单', '已结清', '已终止'],
     terminal: ['已结清', '已终止'],
     entry: '未派工',
     transitions: {
@@ -187,9 +187,9 @@
         { action: 'final_pass', label: '终检通过', to: '已竣工', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' },
         { action: 'reject', label: '技术否决·驳回重检', to: '驳回待重检', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' }
       ],
-      '已竣工': [{ action: 'settle', label: '结算', to: '已结算', roles: ['REPORTER', 'ADMIN'] }],
-      // 补断链：原实现里 已结算→已结清 / →已终止 没有入口
-      '已结算': [{ action: 'clear', label: '结清确认', to: '已结清', roles: ['REPORTER', 'FINANCE', 'ADMIN'] }],
+      '已竣工': [{ action: 'settle', label: '报单', to: '已报单', roles: ['REPORTER', 'ADMIN'] }],
+      // 补断链：原实现里 已结算→已结清 / →已终止 没有入口；状态口径改为「已报单」
+      '已报单': [{ action: 'clear', label: '结清确认', to: '已结清', roles: ['REPORTER', 'FINANCE', 'ADMIN'] }],
       '__any__': [{ action: 'cancel', label: '终止工单', to: '已终止', roles: ['DISPATCHER', 'ADMIN'], requiresReason: true }]
     }
   };
@@ -265,6 +265,7 @@
   var LEGACY_STATUS = {
     WN: {
       '关闭工单': '已结清',
+      '已结算': '已报单',
       '未开工': '已接单',
       '待班组复检': '待质检终检',
       '待复检': '待质检终检',

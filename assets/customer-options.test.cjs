@@ -51,7 +51,7 @@ ok('新建保内工单客户名可输入并按历史名单模糊提示', () => {
   assert.ok(html.indexOf('来广营，理想') >= 0, '候选未进入模糊提示');
   assert.ok(html.indexOf('Barcode号（12位，选填）') >= 0, '车辆字段未改为选填Barcode号');
   assert.ok(html.indexOf('f_wn_gssOrderNo') < 0, 'GSS工单号仍在建单表单');
-  assert.ok(html.indexOf('f_wn_platformNote') < 0, '中台备注仍在建单表单');
+  assert.ok(html.indexOf('id="f_wn_platformNote"') >= 0, '新建表单缺少备注框');
 });
 ok('新建保外工单的签约客户为下拉点选', () => {
   T.openNonWarrantyForm();

@@ -595,7 +595,7 @@ var NW_COLUMN_MAP = {
 function normHeader(h) { return String(h == null ? '' : h).trim().replace(/\s+/g, '').toLowerCase(); }
 var WN_SIG = ['编号', '登记日期', '维修类型', '完成状态', '责任工程师', 'gss工单号', '工程师产值', '中台备注', '旧件返厂', '申领物料', '工单提交时间', '建单日期', 'gss总费用', '派工'];
 var NW_SIG = ['签约客户名称', '报价单', '分润', '车牌号', '车架号', '维修状态', '业务对接人', '物流往返', '宁德', '实际业务毛利润', 'barcode号', '产品pn', '工单号', '序号', '城市'];
-var WN_STATUS = ['未派工', '已接单', '在修', '已竣工', '已结算', '已结清', '已终止'];
+var WN_STATUS = ['未派工', '已接单', '在修', '已竣工', '已报单', '已结清', '已终止'];
 var NW_STATUS = ['待客户确认', '维修完成', '关闭工单'];
 
 function detectSheetType(headers) {

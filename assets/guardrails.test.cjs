@@ -37,10 +37,11 @@ ok('同一人不能终检(责任分离)', A.applyTransition(o, finalT, tech, {})
 ok('终检只允许专职质检员', A.applyTransition(o, finalT, disp, {}).ok === false);
 ok('终检无需班组复检即可通过', !A.actionable('WN', o, lead).some(t => t.action === 'team_review_pass'));
 ok('终检通过->已竣工', A.applyTransition(o, finalT, qi, {}).ok);
-ok('结算->已结算', A.applyTransition(o, A.allowedTransitions('WN', '已竣工')[0], rep, {}).ok);
-ok('补上的结清->已结清', A.applyTransition(o, A.allowedTransitions('WN', '已结算')[0], rep, {}).ok);
+ok('报单->已报单', A.applyTransition(o, A.allowedTransitions('WN', '已竣工')[0], rep, {}).ok);
+ok('旧状态已结算归一为已报单', A.normalizeStatus('WN', '已结算') === '已报单');
+ok('补上的结清->已结清', A.applyTransition(o, A.allowedTransitions('WN', '已报单')[0], rep, {}).ok);
 ok('终态无终止入口', A.allowedTransitions('WN', '已结清').length === 0);
-ok('审计链完整 6 步（派单/开工/自检/终检/结算/结清）', o.audit.length === 6, 'got ' + o.audit.length);
+ok('审计链完整 6 步（派单/开工/自检/终检/报单/结清）', o.audit.length === 6, 'got ' + o.audit.length);
 ok('审计含岗位与请求号', o.audit[0].roleLabel === '调度' && o.audit[0].requestId === 'r1');
 
 group('2. 幂等：相同请求号不重复入账');
@@ -142,7 +143,7 @@ ok('保外旧口径 关闭工单 归一为已关单（不误计为活跃）', A.
 ok('旧口径记录取动作时先归一', A.allowedTransitions('WN', '关闭工单').length === 0);
 ok('活跃判定', A.isActive('WN', '在修') === true && A.isActive('WN', '已终止') === false);
 ok('门户口径统一：活跃=非终态', ['已结清', '已终止'].every(s => !A.isActive('WN', s)));
-ok('跨态跳跃被拒（在修不能直接结算）', A.applyTransition({ id: 'WN-9', _flowKind: 'WN', status: '在修', audit: [] }, A.allowedTransitions('WN', '已竣工')[0], rep, {}).illegal === true);
+ok('跨态跳跃被拒（在修不能直接报单）', A.applyTransition({ id: 'WN-9', _flowKind: 'WN', status: '在修', audit: [] }, A.allowedTransitions('WN', '已竣工')[0], rep, {}).illegal === true);
 
 console.log('\n----------------------------------------');
 console.log('PASS ' + pass + ' / FAIL ' + fail);

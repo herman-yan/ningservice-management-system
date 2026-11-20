@@ -56,7 +56,7 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
     const m = IDP.el().innerHTML;
     ok('弹窗含姓名 chips', m.indexOf('idp-chip') >= 0);
     ok('弹窗含岗位卡片', m.indexOf('idp-rolecard') >= 0);
-    ok('弹窗岗位卡片含职责说明', m.indexOf('负责建单、报单与结算信息录入') >= 0);
+    ok('弹窗岗位卡片含职责说明', m.indexOf('负责建单与报单信息录入') >= 0);
     const roster = IDP.names();
     ok('姓名名单来自台账自动提取', roster.indexOf('罗永豪') >= 0 && roster.indexOf('马迪') >= 0);
     IDP.close();
@@ -82,7 +82,7 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
   ok('认不出的脏状态原样保留、标记为未知', A.normalizeStatus('WN', '已完工??') === '已完工??' && A.isKnownStatus('WN', '已完工??') === false);
   ok('归一后终态单不再给操作按钮', T.afActionButtons('NW', find(T, 'NW', 'NW-000002')).indexOf('afOpenAction') < 0);
 
-  group('3. 保内全链路：派单→已接单→开始维修→自检→终检→结算→结清');
+  group('3. 保内全链路：派单→已接单→开始维修→自检→终检→报单→结清');
   T.afOpenAction('WN', 'WN-000001', 'dispatch');
   get('dispatch_eng').value = '';
   T.confirmDispatchWarranty('WN-000001');
@@ -124,10 +124,10 @@ const find = (T, kind, id) => (kind === 'WN' ? T.APP.warrantyOrders : T.APP.nonW
   ok('专职质检员终检通过 → 已竣工', o1.status === '已竣工');
   T.ME = { name: '周字欢', role: 'REPORTER' };
   T.confirmSettleWarranty('WN-000001');
-  ok('结算后=已结算并采集报单员与费用', o1.status === '已结算' && o1.settledDate);
+  ok('报单后=已报单并采集报单员与费用', o1.status === '已报单' && o1.settledDate);
   T.ME = { name: '赵轩', role: 'FINANCE' };
   T.afCommit('WN', 'WN-000001', 'clear', {});
-  ok('补上的断链：已结算 → 已结清', o1.status === '已结清');
+  ok('补上的断链：已报单 → 已结清', o1.status === '已结清');
   ok('结清后无后续动作（终态）', A.actionable('WN', o1, { name: '任意', role: 'ADMIN' }).length === 0);
   ok('全链路留痕按顺序累积（无班组复检）', o1.audit.map(a => a.action).join('>') === 'dispatch>start>self_check>final_pass>settle>clear');
   ok('留痕与模板版本已写入 localStorage', store.station_mgmt_data.indexOf('"flowTemplateVersion"') >= 0 && store.station_mgmt_data.indexOf('"audit"') >= 0);

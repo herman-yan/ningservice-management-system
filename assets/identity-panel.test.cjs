@@ -183,7 +183,7 @@ ok(modal.indexOf('不是安全边界') >= 0, '含口径说明');
 ok(modal.indexOf('IDP.apply()') >= 0, '含应用按钮');
 ok(modal.indexOf('未改动') >= 0, '未改动时提示');
 // 岗位卡片应展示职责说明
-ok(modal.indexOf('负责建单、报单与结算信息录入') >= 0, '岗位卡片含职责说明');
+ok(modal.indexOf('负责建单与报单信息录入') >= 0, '岗位卡片含职责说明');
 // 只读岗位有标记
 ok(modal.indexOf('idp-tag ro') >= 0, '只读岗位有标记');
 

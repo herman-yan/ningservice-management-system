@@ -82,7 +82,7 @@ tbody tr { cursor: pointer; }
 .status-在修 { background: #dbeafe; color: #1d4ed8; }
 .status-已竣工 { background: #d1fae5; color: #065f46; }
 .status-维修完成 { background: #d1fae5; color: #065f46; }
-.status-已结算 { background: #dcfce7; color: #166534; }
+.status-已报单, .status-已结算 { background: #dcfce7; color: #166534; }
 .status-已结清 { background: #dcfce7; color: #166534; }
 .status-关闭工单 { background: #f1f5f9; color: #64748b; }
 .status-已终止 { background: #fee2e2; color: #991b1b; }
@@ -515,9 +515,12 @@ function afMergeInto(existing, incoming, keyFn) {
 
 // 状态徽标：显式暴露「由旧口径归一而来」与「模板认不出的脏状态」，避免台账被误读；状态值一律转义后入 DOM
 function afStatusPill(kind, o) {
-  const s = afEsc(o.status);
-  if (!AFG.isKnownStatus(kind, o.status)) return `<span class="status-pill">${s} · 状态待确认</span>`;
-  const tag = o.statusRaw ? `<span class="status-legacy" title="原状态「${afEsc(o.statusRaw)}」，已按流转模板 ${afEsc(AFG.flowOf(kind).version)} 归一">原「${afEsc(o.statusRaw)}」</span>` : '';
+  // 展示统一按当前口径（旧「已结算」显示为「已报单」），原值留痕不丢
+  const norm = AFG.normalizeStatus(kind, o.status);
+  const s = afEsc(norm);
+  if (!AFG.isKnownStatus(kind, norm)) return `<span class="status-pill">${afEsc(o.status)} · 状态待确认</span>`;
+  const legacy = o.statusRaw || (norm !== o.status ? o.status : '');
+  const tag = legacy ? `<span class="status-legacy" title="原状态「${afEsc(legacy)}」，已按流转模板 ${afEsc(AFG.flowOf(kind).version)} 归一">原「${afEsc(legacy)}」</span>` : '';
   return `<span class="status-pill status-${s}">${s}</span>${tag}`;
 }
 
@@ -1108,7 +1111,7 @@ function renderDashboard() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div class="card">
         <div class="card-title">🔧 保内工单状态分布</div>
-        ${renderStatusChart(wn, ['未派工','已接单','在修','已竣工','已结算','已结清','已终止'])}
+        ${renderStatusChart(wn, ['未派工','已接单','在修','已竣工','已报单','已结清','已终止'])}
       </div>
       <div class="card">
         <div class="card-title">🔩 保外工单状态分布</div>
@@ -1211,6 +1214,11 @@ function afAllOrders() {
   return list;
 }
 
+// 筛选与状态选项统一按当前口径，避免老数据「已结算」和新口径「已报单」并列出现
+function afDisplayStatus(x) {
+  return x.kind === 'U' ? (x.o.status || '待归类') : AFG.normalizeStatus(x.kind, x.o.status);
+}
+
 function afCategoryBadge(cat) {
   const style = cat === '保内' ? 'background:#dbeafe;color:#1e40af'
     : cat === '保外' ? 'background:#dcfce7;color:#166534'
@@ -1252,24 +1260,32 @@ function renderAcceptedPending(list) {
 
 // 工程师为空、尚未派工的工单：单独在待跟进区露出，避免漏派
 function afUnassignedOrders() {
-  return afAllOrders().filter(x =>
-    x.kind === 'WN' && (x.o.status === '未派工' || !x.o.engineer) ||
-    x.kind === 'NW' && !x.o.repairEngineer && x.o.status !== '已关单' && x.o.status !== '已终止'
-  );
+  // 只保留仍在流转中、且确实没有工程师的工单；已终止/已结清/已关单不再占用待派位
+  return afAllOrders().filter(x => {
+    const kind = x.kind;
+    if (kind !== 'WN' && kind !== 'NW') return false;
+    if (!AFG.isActive(kind, x.o.status)) return false;
+    return kind === 'WN' ? !x.o.engineer : !x.o.repairEngineer;
+  });
 }
 
 function renderUnassigned(list) {
   if (!list.length) return '<div style="color:var(--text-secondary);font-size:13px;padding:6px 2px">✅ 暂无工程师为空的工单</div>';
   return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">' +
-    list.slice(0, 24).map(x => `
+    list.slice(0, 24).map(x => {
+      const note = x.o.platformNote || x.o.note || x.o.remark || '';
+      const noteLabel = x.o.platformNote ? '中台备注' : '备注';
+      return `
       <div style="border:1px solid var(--border);border-radius:8px;padding:9px 11px">
         <div style="font-weight:600;font-size:13px">${afEsc(x.o.id)} · <span style="color:#b45309">未派工</span></div>
         <div style="font-size:12px;color:var(--text-secondary)">${afEsc(x.o.customerName || x.o.signedCustomer || '—')} · ${afEsc(x.o.barcode || x.o.vehicleInfo || x.o.plateNumber || '—')}</div>
+        ${note ? `<div style="font-size:12px;margin-top:5px;padding:5px 7px;background:#f8fafc;border-radius:5px;color:var(--text-secondary)">${noteLabel}：${afEsc(note)}</div>` : ''}
         <div style="font-size:12px;margin-top:6px;display:flex;gap:6px;align-items:center">
           <span style="color:var(--text-secondary)">${afEsc(x.o.status || '待处理')}</span>
           ${AFG.isReadonly(ME.role) ? '' : `<button class="btn btn-sm btn-outline" onclick="${x.kind === 'WN' ? `afOpenAction('WN','${afEsc(x.o.id)}','dispatch')` : `viewNonWarranty('${afEsc(x.o.id)}')`}">${x.kind === 'WN' ? '派单' : '查看'}</button>`}
         </div>
-      </div>`).join('') + '</div>';
+      </div>`;
+    }).join('') + '</div>';
 }
 
 function renderAllRows(list) {
@@ -1299,7 +1315,7 @@ function renderAllOrders() {
   const all = afAllOrders();
   const pending = afAcceptedPending();
   maybeSendDailyDigest(pending);
-  const statuses = Array.from(new Set(all.map(x => x.o.status || '待归类')));
+  const statuses = Array.from(new Set(all.map(afDisplayStatus))).filter(Boolean);
   return `
     <div class="page-header">
       <div><div class="page-title">工单总览</div><div class="page-subtitle">保内 / 保外 / 未分类统一视图 · 底层台账与流转口径保持不变</div></div>
@@ -1356,7 +1372,7 @@ function renderAllOrders() {
 function applyAllFilter() {
   let list = afAllOrders();
   if (allCatFilter && allCatFilter !== '全部') list = list.filter(x => x.cat === allCatFilter);
-  if (allStatusFilter) list = list.filter(x => (x.o.status || '待归类') === allStatusFilter);
+  if (allStatusFilter) list = list.filter(x => afDisplayStatus(x) === allStatusFilter);
   if (allSearchText) {
     const t = allSearchText.toLowerCase();
     list = list.filter(x => ((x.o.id || '') + (x.o.customerName || '') + (x.o.signedCustomer || '') + (x.o.vehicleInfo || '') + (x.o.plateNumber || '') + (x.o.faultDesc || '')).toLowerCase().includes(t));
@@ -1726,6 +1742,10 @@ function openWarrantyForm(id) {
             <label class="form-label">故障描述<span class="required">*</span></label>
             <textarea class="form-textarea" id="f_wn_faultDesc" placeholder="详细描述故障情况">${o?.faultDesc||''}</textarea>
           </div>
+          <div class="form-group full">
+            <label class="form-label">备注（中台备注）</label>
+            <textarea class="form-textarea" id="f_wn_platformNote" rows="2" placeholder="中台需要交代的信息，可在派单时继续修改">${afEsc(o?.platformNote || '')}</textarea>
+          </div>
         </div>
       </div>
       <div class="detail-section">
@@ -1750,7 +1770,7 @@ function openWarrantyForm(id) {
       </div>
       <div class="detail-section">
         <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">
-          物料、报单费用与分工备注不在建单时填写：物料在「仓库登记」记录，GSS工单号与报单费用在「结算」步骤填写，中台备注在「派单」时填写，库房/旧件备注在「仓库登记」时填写。
+          物料、报单费用与分工备注不在建单时填写：物料在「仓库登记」记录，GSS工单号与报单信息在「报单」步骤填写，中台备注可在建单或「派单」时填写，库房/旧件备注在「仓库登记」时填写。
         </div>
       </div>
     </div>
@@ -1792,7 +1812,7 @@ function saveWarranty(editId) {
     totalFee: old.totalFee || '',
     orderDate: old.orderDate || '',
     orderCost: old.orderCost || '',
-    platformNote: old.platformNote || '',
+    platformNote: val('f_wn_platformNote', old.platformNote || ''),
     warehouseNote: old.warehouseNote || '',
     oldPartNote: old.oldPartNote || ''
   };
@@ -2225,6 +2245,13 @@ function viewWarranty(id) {
           <div class="detail-field"><div class="detail-field-label">报单绩效</div><div class="detail-field-value">${o.reporterBonus||'-'}</div></div>
         </div>
       </div>
+      ${(Array.isArray(o.settleWorkers) && o.settleWorkers.length) ? `
+      <div class="detail-section">
+        <div class="detail-section-title">👷 参与维修工程师</div>
+        <div class="detail-grid">
+          ${o.settleWorkers.map((w, i) => `<div class="detail-field"><div class="detail-field-label">工程师 ${i + 1}</div><div class="detail-field-value">${afEsc(w.engineer || '-')} · 工时 ${afEsc(w.hours || '-')} · 里程 ${afEsc(w.mileage || '-')}</div></div>`).join('')}
+        </div>
+      </div>` : ''}
       ${(o.platformNote||o.warehouseNote||o.oldPartNote) ? `
       <div class="detail-section">
         <div class="detail-section-title">📝 备注</div>
@@ -2376,10 +2403,29 @@ function confirmDispatchWarranty(id) {
   afCommit('WN', id, 'dispatch', { engineer: eng, note: '派单给 ' + eng + (note ? '；中台备注：' + note : '') });
 }
 
+// 报单步骤：记录 GSS 信息，以及最多三组参与维修工程师的工时数与里程数
 function settleWarranty(id) {
   const o = APP.warrantyOrders.find(x => x.id === id);
+  const saved = Array.isArray(o.settleWorkers) ? o.settleWorkers.slice(0, 3) : [];
+  const names = Array.from(new Set([].concat(APP.engineers || [], [o.engineer, o.repairEngineer], o.coEngineers || []).filter(Boolean)));
+  const workerBlock = i => {
+    const w = saved[i] || {};
+    const name = w.engineer || (i === 0 ? (o.engineer || '') : '');
+    return `
+      <div class="form-group full" style="border-top:1px dashed var(--border);padding-top:10px;margin-top:4px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">参与维修工程师 ${i + 1}</div>
+        <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:8px">
+          <select class="form-select" id="settle_worker_${i}">
+            <option value="">-- 请选择 --</option>
+            ${names.map(n => `<option value="${afEsc(n)}" ${name === n ? 'selected' : ''}>${afEsc(n)}</option>`).join('')}
+          </select>
+          <input class="form-input" type="number" step="0.1" id="settle_hours_${i}" value="${w.hours || ''}" placeholder="工时数">
+          <input class="form-input" type="number" step="0.1" id="settle_mileage_${i}" value="${w.mileage || ''}" placeholder="里程数">
+        </div>
+      </div>`;
+  };
   const html = `
-    <div class="modal-header"><div class="modal-title">结算 - ${o.id}</div><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-header"><div class="modal-title">报单 - ${o.id}</div><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group"><label class="form-label">报单员</label>
@@ -2390,13 +2436,12 @@ function settleWarranty(id) {
         </div>
         <div class="form-group"><label class="form-label">GSS工单号</label><input class="form-input" id="settle_gssOrderNo" value="${afEsc(o.gssOrderNo||'')}"></div>
         <div class="form-group"><label class="form-label">GSS总费用(元)</label><input class="form-input" type="number" id="settle_gssFee" value="${o.gssFee||''}"></div>
-        <div class="form-group"><label class="form-label">总费用(元)</label><input class="form-input" type="number" id="settle_totalFee" value="${o.totalFee||''}"></div>
-        <div class="form-group"><label class="form-label">保外成交金额(元)</label><input class="form-input" type="number" id="settle_outAmt" value="${o.outWarrantyAmount||''}"></div>
+        ${workerBlock(0)}${workerBlock(1)}${workerBlock(2)}
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" onclick="confirmSettleWarranty('${id}')">确认结算</button>
+      <button class="btn btn-primary" onclick="confirmSettleWarranty('${id}')">确认报单</button>
     </div>
   `;
   showModal(html);
@@ -2404,13 +2449,19 @@ function settleWarranty(id) {
 
 function confirmSettleWarranty(id) {
   const o = APP.warrantyOrders.find(x => x.id === id);
-  o.reporter = document.getElementById('settle_reporter').value;
-  o.gssOrderNo = (document.getElementById('settle_gssOrderNo') || {}).value || o.gssOrderNo || '';
-  o.gssFee = document.getElementById('settle_gssFee').value;
-  o.totalFee = document.getElementById('settle_totalFee').value;
-  o.outWarrantyAmount = document.getElementById('settle_outAmt').value;
+  const val = sid => (document.getElementById(sid) || {}).value || '';
+  o.reporter = val('settle_reporter');
+  o.gssOrderNo = val('settle_gssOrderNo') || o.gssOrderNo || '';
+  o.gssFee = val('settle_gssFee');
+  o.settleWorkers = [0, 1, 2].map(i => ({
+    engineer: val('settle_worker_' + i),
+    hours: val('settle_hours_' + i),
+    mileage: val('settle_mileage_' + i)
+  })).filter(w => w.engineer || w.hours || w.mileage);
+  // 旧字段（总费用/保外成交金额）不再录入，但保留历史值不被清空
   o.settledDate = todayStr();
-  afCommit('WN', id, 'settle', { note: 'GSS总费用 ' + (o.gssFee || '-') + ' / 总费用 ' + (o.totalFee || '-') });
+  const who = o.settleWorkers.map(w => w.engineer).filter(Boolean).join('、') || '-';
+  afCommit('WN', id, 'settle', { note: 'GSS总费用 ' + (o.gssFee || '-') + ' / 参与维修工程师 ' + who });
 }
 
 // ===== WAREHOUSE =====
@@ -2577,7 +2628,7 @@ function renderEngineers() {
         <tbody>
           ${APP.engineers.map(e => {
             const wnActive = APP.warrantyOrders.filter(o => o.engineer===e && ['已接单','在修'].includes(o.status)).length;
-            const wnDone = APP.warrantyOrders.filter(o => o.engineer===e && ['已竣工','已结算','已结清'].includes(o.status)).length;
+            const wnDone = APP.warrantyOrders.filter(o => o.engineer===e && ['已竣工','已报单','已结算','已结清'].includes(o.status)).length;
             const nwActive = APP.nonWarrantyOrders.filter(o => o.repairEngineer===e && o.status==='待客户确认').length;
             const nwDone = APP.nonWarrantyOrders.filter(o => o.repairEngineer===e && o.status==='维修完成').length;
             const output = APP.warrantyOrders.filter(o => o.engineer===e).reduce((s,o) => s + (parseFloat(o.engineerOutput)||0), 0);
@@ -2819,7 +2870,7 @@ const WN_SIG = ['编号','登记日期','维修类型','完成状态','责任工
 const NW_SIG = ['签约客户名称','报价单','分润','车牌号','车架号','维修状态','业务对接人','物流往返','宁德','实际业务毛利润','barcode号','产品pn','工单号','序号','城市'];
 // 状态枚举（行级兜底判定）：只用于导入行的保内/保外判别，两套刻意互不重叠；
 // 流转模板的全量状态请看 AFG.WN_FLOW/NW_FLOW.states
-const WN_STATUS = ['未派工','已接单','在修','已竣工','已结算','已结清','已终止'];
+const WN_STATUS = ['未派工','已接单','在修','已竣工','已报单','已结清','已终止'];
 const NW_STATUS = ['待客户确认','维修完成','关闭工单'];
 
 function detectSheetType(headers) {
