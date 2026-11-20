@@ -23,7 +23,7 @@ function baseData() {
 const HANDLES = {
   read: ['APP', 'ME', 'atDirCache', 'atNamesCache'],
   fns: ['renderAllOrders', 'openNewOrderChooser', 'openUnclassifiedForm', 'saveUnclassified',
-    'openWarrantyForm', 'saveWarranty', 'openAtSettings', 'renderAtSettingsModal',
+    'openWarrantyForm', 'openNonWarrantyForm', 'saveWarranty', 'openAtSettings', 'renderAtSettingsModal',
     'saveAtSettings', 'testAtNotice', 'pushDispatchNotice', 'retryDispatchNotice']
 };
 
@@ -45,16 +45,16 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   await ok('非管理员看不到钉钉@设置按钮', () => {
     assert.ok(H.T.renderAllOrders().indexOf('钉钉@设置') < 0);
   });
-  await ok('统一入口提供三类工单选择', () => {
+  await ok('统一入口直接打开建单表单，不再弹类型选择页', () => {
     H.T.openNewOrderChooser();
     const html = H.get('modalContent').innerHTML;
-    ['新建工单 · 选择类型', '保内工单', '保外工单', '未分类工单', 'openUnclassifiedForm()'].forEach(s => {
-      assert.ok(html.indexOf(s) >= 0, '缺少 ' + s);
-    });
+    assert.ok(html.indexOf('新建工单 · 选择类型') < 0, '仍弹出类型选择页');
+    assert.ok(html.indexOf('f_wn_customerName') >= 0, '未直接打开登记表单');
+    assert.ok(html.indexOf('<option value="待分类"') >= 0, '工单类型缺少待分类');
   });
-  await ok('未分类工单可手工登记并落盘', () => {
+  await ok('未分类工单可手工登记并落盘，车辆信息选填', () => {
     H.T.openUnclassifiedForm();
-    H.setInput('f_u_vehicleInfo', '京D12345');
+    H.setInput('f_u_vehicleInfo', '');
     H.setInput('f_u_faultDesc', '客户暂未说明IMEI');
     H.setInput('f_u_customerName', '临时客户');
     H.T.saveUnclassified('');
@@ -63,7 +63,35 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     assert.strictEqual(o.id, 'U-000001');
     assert.strictEqual(o.status, '待归类');
     assert.strictEqual(o.source, '手工新建');
-    assert.ok(H.store.station_mgmt_data.indexOf('京D12345') >= 0, '未落盘');
+    assert.strictEqual(o.vehicleInfo, '');
+    assert.ok(H.store.station_mgmt_data.indexOf('客户暂未说明IMEI') >= 0, '未落盘');
+  });
+  await ok('工单类型选待分类时建单进入未分类台账', () => {
+    const wnBefore = H.T.APP.warrantyOrders.length;
+    H.T.openWarrantyForm();
+    H.setInput('f_wn_customerName', '待定客户');
+    H.setInput('f_wn_vehicleInfo', '');
+    H.setInput('f_wn_orderType', '待分类');
+    H.setInput('f_wn_faultDesc', '暂时不能判断保内保外');
+    H.T.saveWarranty('');
+    const u = H.T.APP.unclassifiedOrders[H.T.APP.unclassifiedOrders.length - 1];
+    assert.strictEqual(H.T.APP.warrantyOrders.length, wnBefore, '不应写入保内台账');
+    assert.strictEqual(u.id, 'U-000002');
+    assert.strictEqual(u.status, '待归类');
+    assert.strictEqual(u.orderType, '待分类');
+    assert.strictEqual(u.vehicleInfo, '');
+    assert.strictEqual(u.source, '手工新建');
+    assert.ok(H.store.station_mgmt_data.indexOf('U-000002') >= 0, '未落盘');
+    // 伪 DOM 不会随弹窗重建元素，后续用例需把选项恢复默认
+    H.setInput('f_wn_orderType', 'EU5检测');
+  });
+  await ok('三类表单车辆字段均为选填', () => {
+    H.T.openWarrantyForm();
+    assert.ok(H.get('modalContent').innerHTML.indexOf('Barcode号（12位，选填）') >= 0);
+    H.T.openNonWarrantyForm();
+    assert.ok(H.get('modalContent').innerHTML.indexOf('车牌号（选填）') >= 0);
+    H.T.openUnclassifiedForm();
+    assert.ok(H.get('modalContent').innerHTML.indexOf('车辆信息（选填）') >= 0);
   });
   await ok('只读岗位不能打开新建入口', () => {
     H.T.ME.role = 'AUDITOR';

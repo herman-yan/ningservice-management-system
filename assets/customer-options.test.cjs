@@ -49,7 +49,7 @@ ok('新建保内工单客户名可输入并按历史名单模糊提示', () => {
   assert.ok(html.indexOf('<input class="form-input" id="f_wn_customerName" list="wnCustomerList"') >= 0, '不是可输入客户框');
   assert.ok(html.indexOf('<datalist id="wnCustomerList">') >= 0, '缺少历史客户模糊提示');
   assert.ok(html.indexOf('来广营，理想') >= 0, '候选未进入模糊提示');
-  assert.ok(html.indexOf('Barcode号（12位）') >= 0, '车辆字段未改为Barcode号');
+  assert.ok(html.indexOf('Barcode号（12位，选填）') >= 0, '车辆字段未改为选填Barcode号');
   assert.ok(html.indexOf('f_wn_gssOrderNo') < 0, 'GSS工单号仍在建单表单');
   assert.ok(html.indexOf('f_wn_platformNote') < 0, '中台备注仍在建单表单');
 });

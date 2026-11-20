@@ -1607,32 +1607,11 @@ function applyNonWarrantyFilter() {
 }
 
 // ===== WARRANTY FORM =====
-// 新建工单统一入口：只合并界面，底层仍分保内/保外/未分类三本台账
+// 新建工单直接打开登记表单，不再经过类型选择弹窗；
+// 工单类型选「待分类」时，保存后进入未分类台账，后续在总览中人工归类。
 function openNewOrderChooser() {
   if (AFG.isReadonly(ME.role)) return showUploadStatus('当前岗位为只读，不能新建工单', 'error');
-  const opts = [
-    { key: 'WN', icon: '🟦', name: '保内工单', desc: '宁德结算的质保维修，进入保内流转台账', fn: 'openWarrantyForm()' },
-    { key: 'NW', icon: '🟧', name: '保外工单', desc: '客户结算的维修业务，进入保外流转台账', fn: 'openNonWarrantyForm()' },
-    { key: 'U',  icon: '⬜', name: '未分类工单', desc: '暂无法判断保内/保外，先登记后人工归类', fn: 'openUnclassifiedForm()' }
-  ];
-  showModal(`
-    <div class="modal-header">
-      <div class="modal-title">新建工单 · 选择类型</div>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">选择后进入对应登记表单；未分类工单可在总览中归类到保内或保外。</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
-        ${opts.map(x => `
-          <button type="button" onclick="${x.fn}" style="text-align:left;border:1px solid var(--border);border-radius:10px;padding:16px;background:var(--card-bg,#fff);cursor:pointer;transition:.15s" onmouseover="this.style.borderColor='var(--primary,#2563eb)'" onmouseout="this.style.borderColor='var(--border)'">
-            <div style="font-size:22px;margin-bottom:8px">${x.icon}</div>
-            <div style="font-weight:700;font-size:15px;margin-bottom:6px">${x.name}</div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${x.desc}</div>
-          </button>`).join('')}
-      </div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">取消</button></div>
-  `);
+  openWarrantyForm();
 }
 
 // 未分类工单：仅登记最小必要信息，后续人工归类时再进入保内/保外完整流程
@@ -1648,7 +1627,7 @@ function openUnclassifiedForm(id) {
       <div class="form-grid">
         <div class="form-group"><label class="form-label">登记日期<span class="required">*</span></label><input class="form-input" type="date" id="f_u_registerDate" value="${o?.registerDate || todayStr()}"></div>
         <div class="form-group"><label class="form-label">客户名称</label><select class="form-select" id="f_u_customerName">${customerOptionsHtml(o?.customerName)}</select></div>
-        <div class="form-group"><label class="form-label">车辆信息<span class="required">*</span></label><input class="form-input" id="f_u_vehicleInfo" value="${afEsc(o?.vehicleInfo || '')}" placeholder="车牌号 / VIN"></div>
+        <div class="form-group"><label class="form-label">车辆信息（选填）</label><input class="form-input" id="f_u_vehicleInfo" value="${afEsc(o?.vehicleInfo || '')}" placeholder="车牌号 / VIN（可不填）"></div>
         <div class="form-group"><label class="form-label">联系人</label><input class="form-input" id="f_u_contact" value="${afEsc(o?.contact || '')}"></div>
       </div>
       <div class="form-group" style="margin-top:10px"><label class="form-label">故障 / 需求描述<span class="required">*</span></label><textarea class="form-input" id="f_u_faultDesc" rows="4" placeholder="简要描述车辆问题或业务需求">${afEsc(o?.faultDesc || '')}</textarea></div>
@@ -1670,8 +1649,8 @@ function saveUnclassified(editId) {
     faultDesc: document.getElementById('f_u_faultDesc').value,
     note: document.getElementById('f_u_note').value
   };
-  if (!data.vehicleInfo || !data.faultDesc) {
-    alert('请填写必填项：车辆信息、故障描述');
+  if (!data.faultDesc) {
+    alert('请填写必填项：故障 / 需求描述');
     return;
   }
   APP.unclassifiedOrders = APP.unclassifiedOrders || [];
@@ -1722,8 +1701,8 @@ function openWarrantyForm(id) {
             <input class="form-input" id="f_wn_contact" value="${o?.contact||''}" placeholder="联系人姓名/电话">
           </div>
           <div class="form-group">
-            <label class="form-label">Barcode号（12位）<span class="required">*</span></label>
-            <input class="form-input" id="f_wn_vehicleInfo" value="${afEsc(o?.barcode || o?.vehicleInfo || '')}" placeholder="12位Barcode号" maxlength="12" inputmode="numeric">
+            <label class="form-label">Barcode号（12位，选填）</label>
+            <input class="form-input" id="f_wn_vehicleInfo" value="${afEsc(o?.barcode || o?.vehicleInfo || '')}" placeholder="12位Barcode号（可不填）" maxlength="12" inputmode="numeric">
           </div>
           <div class="form-group">
             <label class="form-label">维修类型</label>
@@ -1740,6 +1719,7 @@ function openWarrantyForm(id) {
               <option value="保外" ${o?.orderType==='保外'?'selected':''}>保外</option>
               <option value="批改" ${o?.orderType==='批改'?'selected':''}>批改</option>
               <option value="非售后" ${o?.orderType==='非售后'?'selected':''}>非售后</option>
+              <option value="待分类" ${o?.orderType==='待分类'?'selected':''}>待分类</option>
             </select>
           </div>
           <div class="form-group full">
@@ -1776,6 +1756,7 @@ function openWarrantyForm(id) {
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      ${isNew ? '<button class="btn btn-outline" onclick="openNonWarrantyForm()">改登记保外工单</button>' : ''}
       <button class="btn btn-primary" onclick="saveWarranty('${id||''}')">${isNew?'创建工单':'保存修改'}</button>
     </div>
   `;
@@ -1817,8 +1798,40 @@ function saveWarranty(editId) {
   };
   if (!editId) data.barcode = data.vehicleInfo;
 
-  if(!data.customerName || !data.vehicleInfo || !data.faultDesc) {
-    alert('请填写必填项：客户名称、Barcode号、故障描述');
+  if(!data.customerName || !data.faultDesc) {
+    alert('请填写必填项：客户名称、故障描述');
+    return;
+  }
+
+  // 工单类型选「待分类」：不进保内流转台账，落入未分类池等待人工归类
+  if (data.orderType === '待分类') {
+    let prev = null;
+    if (editId) {
+      const oldIdx = APP.warrantyOrders.findIndex(o => o.id === editId);
+      if (oldIdx >= 0) prev = APP.warrantyOrders.splice(oldIdx, 1)[0];
+    }
+    APP.unclassifiedOrders = APP.unclassifiedOrders || [];
+    const u = Object.assign({}, prev || {}, data);
+    u.orderType = '待分类';
+    u.status = '待归类';
+    u.statusRaw = '';
+    u.category = '未分类';
+    u.engineer = '';
+    u.source = (prev && prev.source) ? prev.source : '手工新建';
+    u.importDate = u.importDate || todayStr();
+    u.dataVersion = DATA_VERSION;
+    u.note = (u.note ? u.note + '；' : '') + '建单登记为待分类' +
+      (data.engineer ? '（填报工程师：' + data.engineer + '）' : '');
+    if (!u.id) {
+      APP.idCounters.u = Number(APP.idCounters.u || 0) + 1;
+      u.id = 'U-' + String(APP.idCounters.u).padStart(6, '0');
+    }
+    AFG.appendAudit(u, { action: editId ? 'edit' : 'create', from: editId ? ((prev && prev.status) || '') : '', to: '待归类', actor: ME, note: '工单类型选「待分类」' });
+    APP.unclassifiedOrders.push(u);
+    saveData(APP);
+    closeModal();
+    renderPage();
+    showUploadStatus(editId ? '工单已更新并转入未分类' : '工单已登记为未分类，可在总览中归类到保内或保外', 'success');
     return;
   }
 
@@ -1882,8 +1895,8 @@ function openNonWarrantyForm(id) {
             <select class="form-select" id="f_nw_signedCustomer">${customerOptionsHtml(o?.signedCustomer)}</select>
           </div>
           <div class="form-group">
-            <label class="form-label">车牌号<span class="required">*</span></label>
-            <input class="form-input" id="f_nw_plateNumber" value="${o?.plateNumber||''}" placeholder="车牌号">
+            <label class="form-label">车牌号（选填）</label>
+            <input class="form-input" id="f_nw_plateNumber" value="${o?.plateNumber||''}" placeholder="车牌号（可不填）">
           </div>
           <div class="form-group">
             <label class="form-label">Barcode号</label>
@@ -2110,8 +2123,8 @@ function saveNonWarranty(editId) {
     remark: document.getElementById('f_nw_remark').value,
   };
 
-  if(!data.signedCustomer || !data.plateNumber || !data.faultDesc) {
-    alert('请填写必填项：签约客户名称、车牌号、业务需求描述');
+  if(!data.signedCustomer || !data.faultDesc) {
+    alert('请填写必填项：签约客户名称、业务需求描述');
     return;
   }
 
