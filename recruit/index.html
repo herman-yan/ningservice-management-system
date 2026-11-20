@@ -255,7 +255,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
           <h3>⚡ 省掉「逐个点开、下载」：一键抓当前简历</h3>
           <p>把下面的按钮<b>拖到浏览器书签栏</b>（显示书签栏：Ctrl+Shift+B）。之后在 BOSS 里点开任意候选人的在线简历页，点一下书签栏里的「抓简历」，当前页面文字就会自动送到本页简历库 —— <b>不用下载、不用复制粘贴、不用切回来</b>。每位 HR 在自己的浏览器拖一次即可，不依赖任何一台电脑、不需要登录任何工具。</p>
           <p><a id="bmLink" class="bm" draggable="true" href="#" onclick="return false">📌 拖我到书签栏（抓简历）</a></p>
-          <p class="hint" style="margin-top:7px">书签抓的是当前网页上能看到的文字。若候选人只有「附件 PDF」且平台不展开正文，请用下面②的官方批量下载；书签抓不到图片 / 扫描件。</p>
+          <p class="hint" style="margin-top:7px">书签能抓当前网页文字，也会自动探测页面里的附件 PDF 并解析入库。请在<b>候选人列表 / 简历预览页</b>点书签（不要在 PDF 单独打开的标签页里点）。图片型 / 扫描件 PDF 没有文字层，抓不到，请用下面②。</p>
           <div class="inbox-row">
             <button id="btnWatchDir" class="btn bm2">📂 监视「下载」文件夹</button>
             <span id="watchStatus" class="inbox-status">未开启</span>
@@ -2340,18 +2340,28 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     });
     await vaultReady;
 
-    /* ===== 省掉「逐个点开、下载」：书签一键抓当前页 ===== */
+    /* ===== 省掉「逐个点开、下载」：书签一键抓当前页（文字 + PDF） ===== */
     (function setupBookmarklet() {
       var a = $('bmLink'); if (!a) return;
       var site = location.href.split('#')[0];
-      var code = "(function(){var t='';try{t=(window.getSelection()||'').toString().trim()}catch(e){}" +
-        "if(!t){try{t=(document.body.innerText||'').trim()}catch(e){}}" +
-        "if(!t){alert('未读取到页面文字；请先展开简历正文');return}" +
-        "if(t.length>180000){t=t.slice(0,180000)}" +
-        "var b;try{b=btoa(unescape(encodeURIComponent(t)))}catch(e){alert('编码失败:'+e.message);return}" +
-        "var w=window.open('" + site + "#resume='+b,'rsGrab');" +
-        "if(!w){alert('请允许弹出窗口后重试')}}" +
-        ")()";
+      var code = [
+        "(async function(){",
+        "var SITE=" + JSON.stringify(site) + ";",
+        "var pdfs=[],texts=[];",
+        "try{var fs=document.querySelectorAll('iframe,frame');for(var i=0;i<fs.length;i++){try{var d=fs[i].contentDocument;if(d&&d.body){var x=(d.body.innerText||'').trim();if(x.length>60)texts.push(x)}}catch(e){}}}catch(e){}",
+        "var urls=[];function add(u){if(!u)return;try{u=decodeURIComponent(u)}catch(e){}if(u&&urls.indexOf(u)<0)urls.push(u)}",
+        "try{var es=document.querySelectorAll('iframe,embed,object');for(var i=0;i<es.length;i++){add(es[i].src||es[i].data||'')}}catch(e){}",
+        "try{var as=document.querySelectorAll('a[href]');for(var i=0;i<as.length;i++){var u=as[i].href||'';if(/\\.pdf|blob:|resume|attach/i.test(u))add(u)}}catch(e){}",
+        "try{var pe=performance.getEntriesByType('resource');for(var i=0;i<pe.length;i++){var u=pe[i].name||'';if(/\\.pdf|pdf|resume|attach|blob:/i.test(u))add(u)}}catch(e){}",
+        "for(var i=0;i<urls.length&&i<60&&pdfs.length<20;i++){try{var r=await fetch(urls[i],{credentials:'include'});var ab=await r.arrayBuffer();if(ab.byteLength>512){var h=new Uint8Array(ab.slice(0,5));if(h[0]===37&&h[1]===80&&h[2]===68&&h[3]===70){var nm=(urls[i].split('/').pop()||'附件简历.pdf').split('?')[0];pdfs.push({name:nm,buf:ab})}}}catch(e){}}",
+        "var t='';try{t=(window.getSelection()||'').toString().trim()}catch(e){}if(!t){try{t=(document.body.innerText||'').trim()}catch(e){}}if(t&&t.length>30)texts.push(t);",
+        "if(!pdfs.length&&!texts.length){alert('未读取到简历：请先把简历正文或 PDF 预览打开，再点书签（在列表页点，不要在 PDF 单独标签页点）');return}",
+        "var w=window.open(SITE+'#grab=1','rsGrab');if(!w){alert('请允许弹出窗口后重试');return}",
+        "var origin=new URL(SITE).origin,sent=false;function send(){if(sent)return;sent=true;try{w.postMessage({type:'rs-resume',pdfs:pdfs,texts:texts},origin)}catch(e){}}",
+        "window.addEventListener('message',function(e){if(e.data==='rs-ready'&&e.source===w){send()}});",
+        "var n=0;var iv=setInterval(function(){try{w.postMessage('rs-ping',origin)}catch(e){}if(++n>24)clearInterval(iv)},250);",
+        "})()"
+      ].join('\n');
       a.setAttribute('href', 'javascript:' + code);
     })();
 
@@ -2372,6 +2382,40 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     }
     consumeResumeHash();
     window.addEventListener('hashchange', consumeResumeHash);
+
+    /* ===== 书签抓取 PDF：接收书签传来的 PDF/文字，解析后入库 ===== */
+    (function setupGrabReceiver() {
+      if (!/[#&]grab=1/.test(location.hash || '')) return;
+      function ack() { try { if (window.opener) window.opener.postMessage('rs-ready', '*'); } catch (e) { } }
+      var done = false;
+      window.addEventListener('message', async function (e) {
+        if (e.data === 'rs-ping') { ack(); return; }
+        var d = e.data;
+        if (!d || d.type !== 'rs-resume' || done) return;
+        done = true;
+        var pdfs = d.pdfs || [], texts = d.texts || [];
+        var qm = $('quickMsg');
+        if (qm) qm.textContent = '书签抓到 ' + (pdfs.length + texts.length) + ' 份，正在解析…';
+        var items = [];
+        for (var i = 0; i < pdfs.length; i++) {
+          var p = pdfs[i], ab = p.buf;
+          if (ab && ab.byteLength != null) {
+            var flike = { name: p.name || ('附件简历' + (i + 1) + '.pdf'), arrayBuffer: (function (x) { return function () { return Promise.resolve(x); }; })(ab) };
+            try { items.push({ text: await extractPdf(flike), filename: flike.name, source: 'bookmark' }); }
+            catch (err) { logFile(flike.name, 'PDF 解析失败：' + err.message, true); }
+          }
+        }
+        for (var j = 0; j < texts.length; j++) items.push({ text: texts[j], filename: '书签抓取-' + new Date().toISOString().slice(0, 10) + '.txt', source: 'bookmark' });
+        if (!items.length) { if (qm) qm.textContent = '抓取内容无法解析（PDF 可能是扫描件）'; return; }
+        try {
+          var r = await ingest(items);
+          if (qm) qm.textContent = '已入库 ' + r.added.length + ' 份' + (r.skipped.length ? '，跳过重复 ' + r.skipped.length + ' 份' : '') + ' · 右侧已重新打分';
+          var c = document.querySelector('.cols'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+        } catch (err) { if (qm) qm.textContent = '入库失败：' + err.message; }
+      });
+      ack();
+    })();
 
     /* ===== 监视下载文件夹：新下载的简历自动读入（本机，不上传） ===== */
     var WDB = 'rs_watch_v1';
