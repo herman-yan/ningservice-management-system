@@ -513,21 +513,155 @@ function afStatusPill(kind, o) {
   return `<span class="status-pill status-${s}">${s}</span>${tag}`;
 }
 
-// 派单成功后推送钉钉提醒。提醒失败不阻断工单流转，结果回写状态栏。
-function pushDispatchNotice(kind, order, engineer, doneMsg) {
+// 派单成功后推送钉钉提醒。提醒失败不阻断工单流转，结果回写状态栏，并提供手动重试。
+let lastDispatchNotice = null;
+function pushDispatchNotice(kind, order, engineer, doneMsg, opts) {
   if (!engineer) return;
+  opts = opts || {};
+  const operator = (typeof ME !== 'undefined' && ME && ME.name) ? ME.name : '';
+  lastDispatchNotice = { kind: kind, order: order, engineer: engineer, doneMsg: doneMsg, operator: operator };
   if (typeof DISPATCH_NOTIFY === 'undefined') {
     showUploadStatus((doneMsg || '派单已完成') + '；钉钉提醒模块未加载', 'error');
     return;
   }
   const label = kind === 'WN' ? '保内' : '保外';
-  const operator = (typeof ME !== 'undefined' && ME && ME.name) ? ME.name : '';
-  DISPATCH_NOTIFY.notify(label, order, engineer, operator).then(r => {
-    const tail = r.ok
-      ? ('钉钉提醒已推送给 ' + engineer)
-      : ('钉钉提醒未送达（' + r.msg + '）');
+  DISPATCH_NOTIFY.notify(label, order, engineer, operator, { force: !!opts.force }).then(r => {
+    let tail;
+    if (r.ok) {
+      tail = '钉钉提醒已推送给 ' + afEsc(engineer) + (r.atMatched ? '（已@）' : '（未设置@名单，群里不会@到本人）');
+    } else if (r.skipped) {
+      tail = '近期已推送过相同提醒，已自动跳过';
+    } else {
+      tail = '钉钉提醒未送达（' + afEsc(r.msg) + '）' +
+        ' <button class="btn btn-sm btn-outline" style="margin-left:8px" onclick="retryDispatchNotice()">重试提醒</button>';
+    }
     showUploadStatus((doneMsg || '派单已完成') + '；' + tail, r.ok ? 'success' : 'error');
   });
+}
+
+function retryDispatchNotice() {
+  const n = lastDispatchNotice;
+  if (!n) return;
+  pushDispatchNotice(n.kind, n.order, n.engineer, n.doneMsg, { force: true });
+}
+
+// ===== 钉钉@名单设置（管理员）=====
+// @提醒需要钉钉群内成员的手机号或 UserId；名单保存在转发服务，所有使用本系统的电脑共享。
+let atDirCache = {};
+let atNamesCache = [];
+
+function afAtEngineerNames() {
+  const set = new Set(APP.engineers || []);
+  [APP.warrantyOrders, APP.nonWarrantyOrders, APP.unclassifiedOrders].forEach(list => {
+    (list || []).forEach(o => {
+      const n = o.engineer || o.repairEngineer || '';
+      if (n) set.add(n);
+    });
+  });
+  Object.keys(atDirCache || {}).forEach(n => set.add(n));
+  return Array.from(set).filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'));
+}
+
+function syncAtDirectoryOnBoot() {
+  if (!digestAutoEnabled()) return;
+  if (typeof DISPATCH_NOTIFY === 'undefined' || !DISPATCH_NOTIFY.getAtDirectory) return;
+  DISPATCH_NOTIFY.getAtDirectory().then(r => {
+    if (!r.ok) return;
+    atDirCache = r.directory || {};
+    if (!Object.keys(atDirCache).length) {
+      // 转发服务若重启丢失文件，用管理员本机备份恢复一次
+      try {
+        const local = JSON.parse(localStorage.getItem('nj_at_directory') || '{}');
+        if (Object.keys(local).length) {
+          DISPATCH_NOTIFY.saveAtDirectory(local).then(x => {
+            if (x.ok) { atDirCache = local; console.log('[钉钉@名单] 已从本机备份恢复 ' + Object.keys(local).length + ' 人'); }
+          });
+        }
+      } catch (e) { /* 本机无备份则忽略 */ }
+    } else {
+      try { localStorage.setItem('nj_at_directory', JSON.stringify(atDirCache)); } catch (e) {}
+    }
+  });
+}
+
+function openAtSettings() {
+  if (ME.role !== 'ADMIN') return showUploadStatus('仅管理员可设置钉钉@名单', 'error');
+  if (typeof DISPATCH_NOTIFY === 'undefined' || !DISPATCH_NOTIFY.getAtDirectory) {
+    return showUploadStatus('钉钉提醒模块未加载', 'error');
+  }
+  showUploadStatus('正在读取钉钉@名单…', 'info');
+  DISPATCH_NOTIFY.getAtDirectory().then(r => {
+    if (!r.ok) return showUploadStatus('读取名单失败：' + afEsc(r.msg || ''), 'error');
+    atDirCache = r.directory || {};
+    renderAtSettingsModal();
+  });
+}
+
+function renderAtSettingsModal() {
+  atNamesCache = afAtEngineerNames();
+  const rows = atNamesCache.map((n, i) => {
+    const d = atDirCache[n] || {};
+    const mobile = typeof d === 'string' ? (/^1\d{10}$/.test(d) ? d : '') : (d.mobile || '');
+    const uid = typeof d === 'string' ? (/^1\d{10}$/.test(d) ? '' : d) : (d.userId || '');
+    return `<tr>
+      <td style="padding:6px 8px;font-weight:600">${afEsc(n)}</td>
+      <td style="padding:6px 8px"><input class="form-input" id="at_m_${i}" value="${afEsc(mobile)}" placeholder="11位手机号" style="width:150px"></td>
+      <td style="padding:6px 8px"><input class="form-input" id="at_u_${i}" value="${afEsc(uid)}" placeholder="钉钉UserId" style="width:150px"></td>
+      <td style="padding:6px 8px"><button class="btn btn-sm btn-outline" onclick="testAtNotice(${i})">测试@</button></td>
+    </tr>`;
+  }).join('');
+  showModal(`
+    <div class="modal-header">
+      <div class="modal-title">钉钉@名单设置</div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7;margin-bottom:14px">
+        钉钉群机器人只有拿到成员的<b>手机号</b>或<b>UserId</b>才能真正 @ 到本人，仅填姓名不会触发提醒。<br>
+        填好保存后，之后每次派单提醒都会自动 @ 对应工程师；留空的工程师照常收到普通提醒。
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="text-align:left;color:var(--text-secondary);font-size:12px">
+          <th style="padding:6px 8px">工程师</th><th style="padding:6px 8px">手机号</th><th style="padding:6px 8px">UserId</th><th style="padding:6px 8px">操作</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" style="padding:16px;color:var(--text-secondary)">暂无工程师名单</td></tr>'}</tbody>
+      </table>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:10px">名单可通过台账中的工程师自动汇总；设置会保存到钉钉转发服务，所有电脑共用。</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveAtSettings()">保存名单</button>
+    </div>
+  `);
+}
+
+function saveAtSettings() {
+  const dir = {};
+  atNamesCache.forEach((n, i) => {
+    const mEl = document.getElementById('at_m_' + i);
+    const uEl = document.getElementById('at_u_' + i);
+    const m = mEl ? mEl.value.trim() : '';
+    const u = uEl ? uEl.value.trim() : '';
+    if (m || u) dir[n] = { mobile: m, userId: u };
+  });
+  DISPATCH_NOTIFY.saveAtDirectory(dir).then(r => {
+    if (!r.ok) return showUploadStatus('名单保存失败：' + afEsc(r.msg || ''), 'error');
+    atDirCache = dir;
+    try { localStorage.setItem('nj_at_directory', JSON.stringify(dir)); } catch (e) {}
+    showUploadStatus('钉钉@名单已保存' + (r.persisted ? '' : '（本服务重启后需重新设置）'), 'success');
+  });
+}
+
+function testAtNotice(i) {
+  const n = atNamesCache[i];
+  if (!n) return;
+  const order = {
+    id: 'TEST-' + String(Date.now()).slice(-6),
+    customerName: '@设置测试',
+    vehicleInfo: '—',
+    faultDesc: '这是一条@功能测试提醒，请忽略'
+  };
+  pushDispatchNotice('WN', order, n, '测试提醒');
 }
 
 // 统一的流转出口：所有状态变化都经过这里，保证合法性、幂等、质检事实与留痕
@@ -954,7 +1088,8 @@ function renderAllRows(list) {
     const o = x.o;
     const status = x.kind === 'U' ? (o.status || '待归类') : afStatusPill(x.kind, o);
     const actions = x.kind === 'U'
-      ? `<button class="btn btn-sm btn-outline" onclick="classifyUnclassified('${afEsc(o.id)}','WN')">归类保内</button>
+      ? `${AFG.isReadonly(ME.role) ? '' : `<button class="btn btn-sm btn-outline" onclick="openUnclassifiedForm('${afEsc(o.id)}')">编辑</button>`}
+         <button class="btn btn-sm btn-outline" onclick="classifyUnclassified('${afEsc(o.id)}','WN')">归类保内</button>
          <button class="btn btn-sm btn-outline" onclick="classifyUnclassified('${afEsc(o.id)}','NW')">归类保外</button>`
       : afActionButtons(x.kind, o);
     return `<tr>
@@ -981,9 +1116,9 @@ function renderAllOrders() {
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn-upload" onclick="document.getElementById('excelFileInput').click()">📥 导入Excel</button>
         <button class="btn-upload" onclick="downloadTemplate()">📄 下载模板</button>
-        <button class="btn btn-outline" onclick="openWarrantyForm()">+ 新建保内</button>
-        <button class="btn btn-outline" onclick="openNonWarrantyForm()">+ 新建保外</button>
+        <button class="btn btn-primary" onclick="openNewOrderChooser()">+ 新建工单</button>
         <button class="btn btn-outline" onclick="sendPendingDigest(true)">🔔 推送待跟进提醒</button>
+        ${ME.role === 'ADMIN' ? '<button class="btn btn-outline" onclick="openAtSettings()" title="设置派单提醒@名单">⚙ 钉钉@设置</button>' : ''}
         <button class="btn btn-outline" onclick="afReloadSeedData()" title="清空本机数据并重新载入站点台账">⟳ 重新载入台账</button>
       </div>
     </div>
@@ -1035,6 +1170,7 @@ function nextOrderId(prefix) {
 
 // 未分类工单人工归类：进入对应台账后走各自原有流程，不破坏历史事实
 function classifyUnclassified(id, target) {
+  if (AFG.isReadonly(ME.role)) return showUploadStatus('当前岗位为只读，不能归类工单', 'error');
   const arr = APP.unclassifiedOrders || [];
   const idx = arr.findIndex(o => o.id === id);
   if (idx < 0) return showUploadStatus('未找到该未分类工单', 'error');
@@ -1266,6 +1402,96 @@ function applyNonWarrantyFilter() {
 }
 
 // ===== WARRANTY FORM =====
+// 新建工单统一入口：只合并界面，底层仍分保内/保外/未分类三本台账
+function openNewOrderChooser() {
+  if (AFG.isReadonly(ME.role)) return showUploadStatus('当前岗位为只读，不能新建工单', 'error');
+  const opts = [
+    { key: 'WN', icon: '🟦', name: '保内工单', desc: '宁德结算的质保维修，进入保内流转台账', fn: 'openWarrantyForm()' },
+    { key: 'NW', icon: '🟧', name: '保外工单', desc: '客户结算的维修业务，进入保外流转台账', fn: 'openNonWarrantyForm()' },
+    { key: 'U',  icon: '⬜', name: '未分类工单', desc: '暂无法判断保内/保外，先登记后人工归类', fn: 'openUnclassifiedForm()' }
+  ];
+  showModal(`
+    <div class="modal-header">
+      <div class="modal-title">新建工单 · 选择类型</div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">选择后进入对应登记表单；未分类工单可在总览中归类到保内或保外。</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
+        ${opts.map(x => `
+          <button type="button" onclick="${x.fn}" style="text-align:left;border:1px solid var(--border);border-radius:10px;padding:16px;background:var(--card-bg,#fff);cursor:pointer;transition:.15s" onmouseover="this.style.borderColor='var(--primary,#2563eb)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:22px;margin-bottom:8px">${x.icon}</div>
+            <div style="font-weight:700;font-size:15px;margin-bottom:6px">${x.name}</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${x.desc}</div>
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">取消</button></div>
+  `);
+}
+
+// 未分类工单：仅登记最小必要信息，后续人工归类时再进入保内/保外完整流程
+function openUnclassifiedForm(id) {
+  const o = id ? afUnclassified().find(x => x.id === id) : null;
+  const isNew = !o;
+  showModal(`
+    <div class="modal-header">
+      <div class="modal-title">${isNew ? '新建未分类工单' : '编辑未分类工单 - ' + afEsc(o.id)}</div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">登记日期<span class="required">*</span></label><input class="form-input" type="date" id="f_u_registerDate" value="${o?.registerDate || todayStr()}"></div>
+        <div class="form-group"><label class="form-label">客户名称</label><select class="form-select" id="f_u_customerName">${customerOptionsHtml(o?.customerName)}</select></div>
+        <div class="form-group"><label class="form-label">车辆信息<span class="required">*</span></label><input class="form-input" id="f_u_vehicleInfo" value="${afEsc(o?.vehicleInfo || '')}" placeholder="车牌号 / VIN"></div>
+        <div class="form-group"><label class="form-label">联系人</label><input class="form-input" id="f_u_contact" value="${afEsc(o?.contact || '')}"></div>
+      </div>
+      <div class="form-group" style="margin-top:10px"><label class="form-label">故障 / 需求描述<span class="required">*</span></label><textarea class="form-input" id="f_u_faultDesc" rows="4" placeholder="简要描述车辆问题或业务需求">${afEsc(o?.faultDesc || '')}</textarea></div>
+      <div class="form-group" style="margin-top:10px"><label class="form-label">备注</label><input class="form-input" id="f_u_note" value="${afEsc(o?.note || '')}"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveUnclassified('${afEsc(id || '')}')">保存工单</button>
+    </div>
+  `);
+}
+
+function saveUnclassified(editId) {
+  const data = {
+    registerDate: document.getElementById('f_u_registerDate').value,
+    customerName: document.getElementById('f_u_customerName').value,
+    vehicleInfo: document.getElementById('f_u_vehicleInfo').value,
+    contact: document.getElementById('f_u_contact').value,
+    faultDesc: document.getElementById('f_u_faultDesc').value,
+    note: document.getElementById('f_u_note').value
+  };
+  if (!data.vehicleInfo || !data.faultDesc) {
+    alert('请填写必填项：车辆信息、故障描述');
+    return;
+  }
+  APP.unclassifiedOrders = APP.unclassifiedOrders || [];
+  if (editId) {
+    const idx = APP.unclassifiedOrders.findIndex(x => x.id === editId);
+    if (idx >= 0) Object.assign(APP.unclassifiedOrders[idx], data);
+  } else {
+    APP.idCounters.u = Number(APP.idCounters.u || 0) + 1;
+    data.id = 'U-' + String(APP.idCounters.u).padStart(6, '0');
+    data.status = '待归类';
+    data.statusRaw = '';
+    data.category = '未分类';
+    data.engineer = '';
+    data.source = '手工新建';
+    data.importDate = todayStr();
+    data.dataVersion = DATA_VERSION;
+    AFG.appendAudit(data, { action: 'create', from: '', to: '待归类', actor: ME, note: '新建未分类工单' });
+    APP.unclassifiedOrders.push(data);
+  }
+  saveData(APP);
+  closeModal();
+  renderPage();
+  showUploadStatus(editId ? '未分类工单已更新' : '未分类工单已登记，可在总览中归类到保内/保外', 'success');
+}
+
 function openWarrantyForm(id) {
   const o = id ? APP.warrantyOrders.find(x => x.id === id) : null;
   const isNew = !o;
@@ -1459,7 +1685,10 @@ function saveWarranty(editId) {
     return;
   }
 
+  let prevEngineer = '';
   if(editId) {
+    const oldOrder = afFindOrder('WN', editId);
+    prevEngineer = oldOrder ? (oldOrder.engineer || '') : '';
     const idx = APP.warrantyOrders.findIndex(o => o.id === editId);
     if(idx >= 0) Object.assign(APP.warrantyOrders[idx], data);
   } else {
@@ -1484,6 +1713,10 @@ function saveWarranty(editId) {
   saveData(APP);
   closeModal();
   renderPage();
+  // 建单时若已指定工程师，或编辑时更换了工程师，都视为派单，必须推送提醒
+  if (data.engineer && data.engineer !== prevEngineer) {
+    pushDispatchNotice('WN', data, data.engineer, editId ? '保内工单已更新' : '保内工单已创建');
+  }
 }
 
 // ===== NON-WARRANTY FORM =====
@@ -2737,6 +2970,7 @@ async function initApp() {
   renderIdentityBar();
   afApplyNavPermission();
   renderPage();
+  syncAtDirectoryOnBoot();
 
   if (!hasData || DATA_STALE) {
     const base = 'https://herman-yan.github.io/ningservice-management-system/work-order/';

@@ -165,6 +165,59 @@ const nw = {
     assert.strictEqual(f.calls[0].opts.headers['x-relay-key'], 'test');
   });
 
+  console.log('\n== 失败重试与 @ 名单 ==');
+  await ok('网络抖动自动重试两次后仍失败', async () => {
+    const f = fakeFetch(new Error('offline'));
+    const r = await N.notify('WN', wn, '刘珍', '赵轩', { fetchImpl: f, retries: 2, retryDelay: 0 });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(f.calls.length, 3);
+  });
+  await ok('首次 500、第二次成功则最终送达', async () => {
+    let n = 0;
+    const f = function () {
+      n++;
+      return n === 1
+        ? Promise.resolve(jsonResponse({ ok: false }, 500))
+        : Promise.resolve(jsonResponse({ ok: true, msg: '提醒已送达' }));
+    };
+    const calls = [];
+    f.calls = calls;
+    const r = await N.notify('WN', wn, '刘珍', '赵轩', { fetchImpl: f, retries: 2, retryDelay: 0 });
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(n, 2);
+  });
+  await ok('业务失败不重试', async () => {
+    const f = fakeFetch(jsonResponse({ ok: false, msg: '钉钉返回：参数错误' }));
+    const r = await N.notify('WN', wn, '刘珍', '赵轩', { fetchImpl: f, retryDelay: 0 });
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(f.calls.length, 1);
+  });
+  await ok('force 模式在报文中标记跳过去重', async () => {
+    const f = fakeFetch(jsonResponse({ ok: true, msg: '提醒已送达' }));
+    await N.notify('WN', wn, '刘珍', '赵轩', { fetchImpl: f, force: true });
+    assert.strictEqual(JSON.parse(f.calls[0].opts.body).force, true);
+  });
+  await ok('服务端 atMatched 回传到页面结果', async () => {
+    const f = fakeFetch(jsonResponse({ ok: true, atMatched: true, msg: '提醒已送达并@刘珍' }));
+    const r = await N.notify('WN', wn, '刘珍', '赵轩', { fetchImpl: f });
+    assert.strictEqual(r.atMatched, true);
+  });
+  await ok('读取@名单走带口令的 GET', async () => {
+    const f = fakeFetch(jsonResponse({ ok: true, directory: { '刘珍': { mobile: '13800138000' } } }));
+    const r = await N.getAtDirectory({ fetchImpl: f, key: 'k1', url: 'http://local/notify' });
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.directory['刘珍'].mobile, '13800138000');
+    assert.strictEqual(f.calls[0].opts.method, 'GET');
+    assert.ok(f.calls[0].url.indexOf('key=k1') >= 0);
+  });
+  await ok('保存@名单提交完整映射', async () => {
+    const f = fakeFetch(jsonResponse({ ok: true, persisted: true }));
+    const r = await N.saveAtDirectory({ '刘珍': { mobile: '13800138000' } }, { fetchImpl: f, key: 'k2' });
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.persisted, true);
+    assert.strictEqual(JSON.parse(f.calls[0].opts.body).directory['刘珍'].mobile, '13800138000');
+  });
+
   console.log('\n----------------------------------------');
   console.log('PASS ' + pass + ' / FAIL ' + fail);
   process.exit(fail ? 1 : 0);

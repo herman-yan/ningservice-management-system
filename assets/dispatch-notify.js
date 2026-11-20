@@ -51,6 +51,40 @@
     };
   }
 
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  function relayBase(opts) {
+    var url = opts.url || RELAY_URL;
+    return url.replace(/\/notify\/?(?:\?.*)?$/, '');
+  }
+
+  function requestJson(url, opts, method, body, extraHeaders) {
+    var fetchFn = opts.fetchImpl || (typeof fetch === 'function' ? fetch : null);
+    if (!fetchFn) return Promise.resolve({ ok: false, msg: '当前环境不支持网络提醒' });
+    var headers = { 'Content-Type': 'application/json', 'x-relay-key': opts.key };
+    if (extraHeaders) Object.keys(extraHeaders).forEach(function (k) { headers[k] = extraHeaders[k]; });
+    var init = {
+      method: method || 'POST',
+      headers: headers,
+      credentials: 'omit',
+      cache: 'no-store'
+    };
+    if (body !== undefined) init.body = JSON.stringify(body);
+    if (typeof AbortController === 'function' && opts.timeout !== 0) {
+      var ctrl = new AbortController();
+      init.signal = ctrl.signal;
+      var timer = setTimeout(function () { ctrl.abort(); }, opts.timeout || 10000);
+      return Promise.resolve(fetchFn(url, init))
+        .then(function (r) { clearTimeout(timer); return r; })
+        .catch(function (e) { clearTimeout(timer); throw e; });
+    }
+    return Promise.resolve(fetchFn(url, init));
+  }
+
+  // 建单/派单提醒偶发漏推，多因网络抖动或服务冷启动；对此类错误自动重试，
+  // 业务性失败（参数错误、钉钉明确拒绝）不重试，避免重复打扰。
   function postPayload(payload, opts) {
     opts = opts || {};
     if (!payload.id || !payload.engineer) {
@@ -62,32 +96,71 @@
     }
     var url = opts.url || RELAY_URL;
     var key = Object.prototype.hasOwnProperty.call(opts, 'key') ? opts.key : RELAY_KEY;
+    var cfg = Object.assign({ key: key, fetchImpl: fetchFn }, opts, { url: url });
+    var retries = opts.retries === undefined ? 2 : Math.max(0, opts.retries);
+    var delays = opts.retryDelay === undefined ? [300, 900] : opts.retryDelay;
+    var body = Object.assign({}, payload);
+    if (opts.force) body.force = true;
 
-    return Promise.resolve()
-      .then(function () {
-        return fetchFn(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-relay-key': key },
-          body: JSON.stringify(payload),
-          credentials: 'omit',
-          cache: 'no-store'
+    function attempt(i) {
+      return requestJson(url, cfg, 'POST', body)
+        .then(function (r) {
+          if (!r || !r.ok) throw new Error('转发服务返回 ' + (r && r.status ? r.status : '无响应'));
+          return r.json();
+        })
+        .then(function (j) {
+          return {
+            ok: !!(j && j.ok),
+            skipped: !!(j && j.skipped),
+            atMatched: !!(j && j.atMatched),
+            msg: (j && (j.msg || j.errmsg)) || '未知结果',
+            payload: payload
+          };
+        })
+        .catch(function (e) {
+          if (i < retries) {
+            var d = Array.isArray(delays) ? (delays[i] || delays[delays.length - 1] || 0) : delays;
+            return wait(d).then(function () { return attempt(i + 1); });
+          }
+          return { ok: false, msg: (e && e.message) || '发送失败', payload: payload };
         });
-      })
+    }
+    return attempt(0);
+  }
+
+  function getAtDirectory(opts) {
+    opts = opts || {};
+    var url = relayBase(opts) + '/at-directory?key=' + encodeURIComponent(
+      Object.prototype.hasOwnProperty.call(opts, 'key') ? opts.key : RELAY_KEY);
+    var cfg = Object.assign({}, opts, {
+      key: Object.prototype.hasOwnProperty.call(opts, 'key') ? opts.key : RELAY_KEY,
+      fetchImpl: opts.fetchImpl || (typeof fetch === 'function' ? fetch : null)
+    });
+    return requestJson(url, cfg, 'GET')
       .then(function (r) {
-        if (!r || !r.ok) throw new Error('转发服务返回 ' + (r && r.status ? r.status : '无响应'));
+        if (!r || !r.ok) throw new Error('读取名单失败（' + (r && r.status ? r.status : '无响应') + '）');
+        return r.json();
+      })
+      .then(function (j) { return { ok: !!(j && j.ok), directory: (j && j.directory) || {} }; })
+      .catch(function (e) { return { ok: false, directory: {}, msg: e.message }; });
+  }
+
+  function saveAtDirectory(directory, opts) {
+    opts = opts || {};
+    var url = relayBase(opts) + '/at-directory';
+    var cfg = Object.assign({}, opts, {
+      key: Object.prototype.hasOwnProperty.call(opts, 'key') ? opts.key : RELAY_KEY,
+      fetchImpl: opts.fetchImpl || (typeof fetch === 'function' ? fetch : null)
+    });
+    return requestJson(url, cfg, 'POST', { directory: directory || {} })
+      .then(function (r) {
+        if (!r || !r.ok) throw new Error('保存名单失败（' + (r && r.status ? r.status : '无响应') + '）');
         return r.json();
       })
       .then(function (j) {
-        return {
-          ok: !!(j && j.ok),
-          skipped: !!(j && j.skipped),
-          msg: (j && (j.msg || j.errmsg)) || '未知结果',
-          payload: payload
-        };
+        return { ok: !!(j && j.ok), msg: (j && j.msg) || '', persisted: !!(j && j.persisted) };
       })
-      .catch(function (e) {
-        return { ok: false, msg: (e && e.message) || '发送失败', payload: payload };
-      });
+      .catch(function (e) { return { ok: false, msg: e.message }; });
   }
 
   function notify(kind, order, engineer, operator, opts) {
@@ -121,6 +194,8 @@
     RELAY_URL: RELAY_URL,
     buildPayload: buildPayload,
     notify: notify,
-    sendDigest: sendDigest
+    sendDigest: sendDigest,
+    getAtDirectory: getAtDirectory,
+    saveAtDirectory: saveAtDirectory
   };
 });
