@@ -49,7 +49,10 @@
   function visibleOrders(role, orders, actor, linkIndex) {
     var list = orders || [];
     if (role === 'TECHNICIAN') {
-      return list.filter(function (o) { return samePerson(o.engineer, actor && actor.name) || samePerson(o.repairEngineer, actor && actor.name); });
+      return list.filter(function (o) {
+        var names = [o.engineer, o.repairEngineer].concat(o.coEngineers || []);
+        return names.some(function (n) { return samePerson(n, actor && actor.name); });
+      });
     }
     if (role === 'FINANCE') {
       return list.filter(function (o) {
@@ -181,7 +184,7 @@
       '在修': [{ action: 'self_check', label: '申报竣工(技师自检)', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
       '驳回待重检': [{ action: 'self_check', label: '重新申报竣工', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
       '待质检终检': [
-        { action: 'final_pass', label: '终检通过', to: '已竣工', roles: ['QUALITY_INSPECTOR'], stage: 'FINAL' },
+        { action: 'final_pass', label: '终检通过', to: '已竣工', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' },
         { action: 'reject', label: '技术否决·驳回重检', to: '驳回待重检', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' }
       ],
       '已竣工': [{ action: 'settle', label: '结算', to: '已结算', roles: ['REPORTER', 'ADMIN'] }],
@@ -202,7 +205,7 @@
       '在修': [{ action: 'self_check', label: '申报竣工(技师自检)', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
       '驳回待重检': [{ action: 'self_check', label: '重新申报竣工', to: '待质检终检', roles: ['TECHNICIAN', 'ADMIN'], stage: 'SELF' }],
       '待质检终检': [
-        { action: 'final_pass', label: '终检通过', to: '维修完成', roles: ['QUALITY_INSPECTOR'], stage: 'FINAL' },
+        { action: 'final_pass', label: '终检通过', to: '维修完成', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' },
         { action: 'reject', label: '技术否决·驳回重检', to: '驳回待重检', roles: ['QUALITY_INSPECTOR', 'ADMIN'], stage: 'FINAL' }
       ],
       '维修完成': [{ action: 'close', label: '关闭工单', to: '已关单', roles: ['REPORTER', 'FINANCE', 'ADMIN'] }],

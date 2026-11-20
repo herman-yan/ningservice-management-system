@@ -43,12 +43,15 @@ const { els, T, get, runError } = loadPage('work-order/index.html', {
 });
 ok('页面在伪 DOM 中正常加载', () => assert.ok(!runError, runError && runError.message));
 
-ok('新建保内工单的客户名为下拉点选', () => {
+ok('新建保内工单客户名可输入并按历史名单模糊提示', () => {
   T.openWarrantyForm();
   const html = els.get('modalContent').innerHTML;
-  assert.ok(html.indexOf('<select class="form-select" id="f_wn_customerName"') >= 0);
-  assert.ok(html.indexOf('f_wn_customerName" value=') < 0, '仍是可手填输入框');
-  assert.ok(html.indexOf('来广营，理想') >= 0, '候选未进入下拉');
+  assert.ok(html.indexOf('<input class="form-input" id="f_wn_customerName" list="wnCustomerList"') >= 0, '不是可输入客户框');
+  assert.ok(html.indexOf('<datalist id="wnCustomerList">') >= 0, '缺少历史客户模糊提示');
+  assert.ok(html.indexOf('来广营，理想') >= 0, '候选未进入模糊提示');
+  assert.ok(html.indexOf('Barcode号（12位）') >= 0, '车辆字段未改为Barcode号');
+  assert.ok(html.indexOf('f_wn_gssOrderNo') < 0, 'GSS工单号仍在建单表单');
+  assert.ok(html.indexOf('f_wn_platformNote') < 0, '中台备注仍在建单表单');
 });
 ok('新建保外工单的签约客户为下拉点选', () => {
   T.openNonWarrantyForm();

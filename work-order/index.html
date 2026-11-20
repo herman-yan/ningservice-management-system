@@ -378,8 +378,16 @@ function afEsc(v) {
   return String(v === undefined || v === null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// 客户名称统一从历史台账候选里点选，不手工填写；
-// 老单据里不在候选名单的客户名仍保留一项，避免编辑时丢失原值。
+// 客户名称：可直接输入，浏览器按历史名单做模糊提示（datalist）。
+// 历史名单仍保留，编辑老单据时原值不会被吞掉。
+function customerInputHtml(selected, listId) {
+  const id = listId || 'njCustomerList';
+  const list = (typeof CUSTOMER_OPTIONS !== 'undefined' && Array.isArray(CUSTOMER_OPTIONS)) ? CUSTOMER_OPTIONS : [];
+  return `<input class="form-input" id="f_wn_customerName" list="${id}" value="${afEsc(selected || '')}" placeholder="输入客户名称，可从历史客户中选择" autocomplete="off">
+    <datalist id="${id}">${list.map(n => `<option value="${afEsc(n)}"></option>`).join('')}</datalist>`;
+}
+
+// 兼容旧视图：部分历史弹窗仍使用下拉点选
 function customerOptionsHtml(selected) {
   const list = (typeof CUSTOMER_OPTIONS !== 'undefined' && Array.isArray(CUSTOMER_OPTIONS)) ? CUSTOMER_OPTIONS : [];
   const cur = String(selected || '');
@@ -446,8 +454,8 @@ function afApplyScope(list, linkIndex) {
   const sc = afScopeOverride();
   if (sc === 'all') return list.slice();
   if (sc === 'own') {
-    return list.filter(o => AFG.samePerson(o.engineer, ME.name) || AFG.samePerson(o.repairEngineer, ME.name)
-      || AFG.samePerson(o.reporter, ME.name));
+    return list.filter(o => [o.engineer, o.repairEngineer].concat(o.coEngineers || [])
+      .some(n => AFG.samePerson(n, ME.name)) || AFG.samePerson(o.reporter, ME.name));
   }
   return AFG.visibleOrders(ME.role, list, ME, linkIndex);
 }
@@ -556,6 +564,7 @@ function afAtEngineerNames() {
     (list || []).forEach(o => {
       const n = o.engineer || o.repairEngineer || '';
       if (n) set.add(n);
+      (o.coEngineers || []).forEach(c => { if (c) set.add(c); });
     });
   });
   Object.keys(atDirCache || {}).forEach(n => set.add(n));
@@ -753,10 +762,9 @@ function afOpenQcModal(kind, id) {
         <div class="form-group"><label class="form-label">容量恢复率(%)</label><input class="form-input" type="number" step="0.01" id="qc_capacityRecoveryPct" placeholder="95 ~ 999.99"></div>
         <div class="form-group"><label class="form-label">72小时压降(mV)</label><input class="form-input" type="number" step="0.01" id="qc_voltageDrop72hMv" placeholder="0 ~ 30"></div>
       </div>
-      <div class="form-group full" style="margin-top:10px"><label class="form-label">完工日期 / 工程师备注 / 产值</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="form-group full" style="margin-top:10px"><label class="form-label">完工日期 / 工程师备注</label>
+        <div style="display:grid;grid-template-columns:1fr;gap:8px">
           <input class="form-input" type="date" id="comp_date" value="${todayStr()}">
-          <input class="form-input" type="number" step="0.1" id="comp_output" placeholder="工程师产值">
         </div>
         <textarea class="form-textarea" id="comp_note" rows="2" placeholder="维修情况、更换配件等" style="margin-top:8px"></textarea>
       </div>
@@ -786,7 +794,7 @@ function afSubmitQc(kind, id) {
   const o = afFindOrder(kind, id);
   o.completeDate = val('comp_date');
   o.engineerNote = val('comp_note');
-  o.engineerOutput = val('comp_output');
+  // 工程师产值已取消录入；历史字段 engineerOutput 保留只读备查
   // applyTransition 的结构化质检约定放在 payload.qc 下（stampQc 也按此留档）
   afCommit(kind, id, 'self_check', { qc: qc, note: val('comp_note') });
 }
@@ -818,10 +826,169 @@ function afAuditHtml(o) {
       ${a.note ? '<br>备注：' + afEsc(a.note) : ''}</div>`).join('');
 }
 
+// ===== 一单双工程师：工程师提报协同申请，管理员批准后新增协同工程师 =====
+function afEngineerNames(kind, o) {
+  const arr = [o && (kind === 'WN' ? o.engineer : o.repairEngineer)].concat((o && o.coEngineers) || []);
+  return arr.filter(Boolean);
+}
+
+function afPendingTransfers() {
+  const out = [];
+  afAllOrders().forEach(x => {
+    ((x.o.transferRequests || []).filter(r => r.status === '待审批')).forEach(r => {
+      out.push({ kind: x.kind, o: x.o, req: r });
+    });
+  });
+  return out;
+}
+
+function openTransferRequest(kind, id) {
+  const o = afFindOrder(kind, id);
+  if (!o) return;
+  const busy = afEngineerNames(kind, o);
+  const candidates = (APP.engineers || []).filter(e => busy.indexOf(e) < 0);
+  showModal(`
+    <div class="modal-header"><div class="modal-title">申请协同转单 - ${afEsc(o.id)}</div><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="qc-fact">当前工程师：<b>${afEsc(busy.join('、') || '未指定')}</b>。提交后由管理员审批；批准后新工程师作为协同工程师加入本单，两人共同完成。</div>
+      <div class="form-group full" style="margin-top:10px">
+        <label class="form-label">接手工程师<span class="required">*</span></label>
+        <select class="form-select" id="tr_to">
+          <option value="">-- 请选择 --</option>
+          ${candidates.map(e => `<option value="${afEsc(e)}">${afEsc(e)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group full" style="margin-top:10px">
+        <label class="form-label">申请原因<span class="required">*</span></label>
+        <textarea class="form-textarea" id="tr_reason" rows="3" placeholder="例如：本人需支援其他站点，剩余均衡工序请张峻接手"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitTransferRequest('${kind}','${afEsc(o.id)}')">提交申请</button>
+    </div>`);
+}
+
+function submitTransferRequest(kind, id) {
+  const o = afFindOrder(kind, id);
+  if (!o) return;
+  const to = (document.getElementById('tr_to') || {}).value || '';
+  const reason = ((document.getElementById('tr_reason') || {}).value || '').trim();
+  if (!to || !reason) { alert('请选择接手工程师并填写申请原因'); return; }
+  o.transferRequests = o.transferRequests || [];
+  o.transferRequests.unshift({
+    id: 'TR-' + String(Date.now()).slice(-8),
+    from: ME.name, to: to, reason: reason,
+    at: new Date().toISOString(), status: '待审批'
+  });
+  AFG.appendAudit(o, { action: 'transfer_request', from: o.status, to: o.status, actor: ME, note: '申请 ' + to + ' 协同：' + reason });
+  saveData(APP);
+  closeModal();
+  renderPage();
+  showUploadStatus('协同申请已提交，等待管理员审批', 'success');
+}
+
+function afRenderTransferRequests(list) {
+  if (!list.length) return '<div style="color:var(--text-secondary);font-size:13px;padding:6px 2px">✅ 暂无待审批的协同申请</div>';
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px">' +
+    list.slice(0, 20).map(x => `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div style="font-weight:600;font-size:13px">${afEsc(x.o.id)} · ${afEsc(x.req.from)} → ${afEsc(x.req.to)}</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:5px">${afEsc(x.req.reason)}</div>
+        <div style="font-size:12px;margin-top:7px;display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" onclick="openTransferDecision('${x.kind}','${afEsc(x.o.id)}','${afEsc(x.req.id)}',true)">批准协同</button>
+          <button class="btn btn-sm btn-outline" onclick="openTransferDecision('${x.kind}','${afEsc(x.o.id)}','${afEsc(x.req.id)}',false)">驳回</button>
+        </div>
+      </div>`).join('') + '</div>';
+}
+
+function openTransferDecision(kind, id, reqId, approve) {
+  showModal(`
+    <div class="modal-header"><div class="modal-title">${approve ? '批准协同申请' : '驳回协同申请'} - ${afEsc(id)}</div><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="qc-fact">${approve ? '批准后该工程师将作为协同工程师加入本单，两人共同完成，并收到钉钉提醒。' : '请写明驳回原因，便于申请人调整。'}</div>
+      <div class="form-group full" style="margin-top:10px">
+        <label class="form-label">${approve ? '备注（可选）' : '驳回原因<span class="required">*</span>'}</label>
+        <textarea class="form-textarea" id="tr_decision_note" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmTransferDecision('${kind}','${afEsc(id)}','${afEsc(reqId)}',${approve ? 'true' : 'false'})">确认</button>
+    </div>`);
+}
+
+function confirmTransferDecision(kind, id, reqId, approve) {
+  const o = afFindOrder(kind, id);
+  if (!o) return;
+  const req = (o.transferRequests || []).find(r => r.id === reqId && r.status === '待审批');
+  if (!req) return showUploadStatus('该申请已处理，请刷新后查看', 'error');
+  const note = ((document.getElementById('tr_decision_note') || {}).value || '').trim();
+  if (!approve && !note) { alert('请填写驳回原因'); return; }
+  req.status = approve ? '已批准' : '已驳回';
+  req.decidedBy = ME.name;
+  req.decidedAt = new Date().toISOString();
+  req.decisionNote = note;
+  o.coEngineers = o.coEngineers || [];
+  if (approve && o.coEngineers.indexOf(req.to) < 0) o.coEngineers.push(req.to);
+  AFG.appendAudit(o, {
+    action: approve ? 'transfer_approve' : 'transfer_reject',
+    from: o.status, to: o.status, actor: ME,
+    note: (approve ? '批准 ' : '驳回 ') + req.from + ' → ' + req.to + ' 协同申请' + (note ? '：' + note : '')
+  });
+  saveData(APP);
+  closeModal();
+  renderPage();
+  if (approve) {
+    pushDispatchNotice(kind, o, req.to, '已批准 ' + req.from + ' → ' + req.to + ' 协同');
+  } else {
+    showUploadStatus('协同申请已驳回', 'success');
+  }
+}
+
+function openEngineerNote(kind, id) {
+  const o = afFindOrder(kind, id);
+  if (!o) return;
+  showModal(`
+    <div class="modal-header"><div class="modal-title">工程师备注 - ${afEsc(o.id)}</div><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="qc-fact">当前状态：<b>${afEsc(o.status)}</b>。此处填写尚未完工工序、待料、下一步计划等，供后续接手人查看。</div>
+      <div class="form-group full" style="margin-top:10px">
+        <label class="form-label">工程师备注</label>
+        <textarea class="form-textarea" id="eng_note_text" rows="5" placeholder="例如：电池包已拆检，等待 BMS 备件；剩余均衡工序未完成">${afEsc(o.engineerProgressNote || '')}</textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveEngineerNote('${kind}','${afEsc(o.id)}')">保存备注</button>
+    </div>`);
+}
+
+function saveEngineerNote(kind, id) {
+  const o = afFindOrder(kind, id);
+  if (!o) return;
+  const v = (document.getElementById('eng_note_text') || {}).value || '';
+  o.engineerProgressNote = v;
+  AFG.appendAudit(o, { action: 'engineer_note', from: o.status, to: o.status, actor: ME, note: v });
+  saveData(APP);
+  closeModal();
+  renderPage();
+  showUploadStatus('工程师备注已保存，后续接手人可在详情中查看', 'success');
+}
+
 function afActionButtons(kind, o) {
   const acts = AFG.actionable(kind, o, ME);
-  if (!acts.length) return AFG.isReadonly(ME.role) ? '<span style="font-size:12px;color:var(--text-secondary)">只读岗位</span>' : '';
-  return acts.map(t => {
+  let extra = '';
+  if (o.status === '在修' && !AFG.isReadonly(ME.role) &&
+      ['TECHNICIAN', 'DISPATCHER', 'ADMIN'].indexOf(ME.role) >= 0) {
+    extra += `<button class="btn btn-sm btn-outline" onclick="openEngineerNote('${kind}','${afEsc(o.id)}')">工程师备注</button>`;
+  }
+  if (['已接单', '在修'].indexOf(o.status) >= 0 && !AFG.isReadonly(ME.role) &&
+      ['TECHNICIAN', 'ADMIN'].indexOf(ME.role) >= 0 && afEngineerNames(kind, o).length) {
+    extra += `<button class="btn btn-sm btn-outline" onclick="openTransferRequest('${kind}','${afEsc(o.id)}')">申请协同</button>`;
+  }
+  if (!acts.length) return extra || (AFG.isReadonly(ME.role) ? '<span style="font-size:12px;color:var(--text-secondary)">只读岗位</span>' : '');
+  return extra + acts.map(t => {
     const cls = t.action === 'cancel' || t.action === 'reject' ? 'btn btn-sm btn-outline' :
       (t.action === 'clear' || t.action === 'close' ? 'btn btn-sm btn-outline' : 'btn btn-sm btn-primary');
     return `<button class="${cls}" onclick="afOpenAction('${kind}','${afEsc(o.id)}','${t.action}')">${afEsc(t.label)}</button>`;
@@ -1076,10 +1243,33 @@ function renderAcceptedPending(list) {
       const warn = x.days >= 3;
       return `<div style="border:1px solid ${warn ? '#f59e0b' : 'var(--border)'};background:${warn ? '#fffbeb' : '#fff'};border-radius:8px;padding:9px 11px">
         <div style="font-weight:600;font-size:13px">${afEsc(x.o.id)} · ${afEsc(x.o.engineer || '未指派')}</div>
-        <div style="font-size:12px;color:var(--text-secondary)">${afEsc(x.o.customerName || '—')} · ${afEsc(x.o.vehicleInfo || '—')}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">${afEsc(x.o.customerName || '—')} · ${afEsc(x.o.barcode || x.o.vehicleInfo || '—')}</div>
         <div style="font-size:12px;margin-top:4px;color:${warn ? '#b45309' : 'var(--text-secondary)'};font-weight:${warn ? '700' : '400'}">已等待 ${x.days} 天${warn ? ' · 需跟进' : ''}</div>
+        ${x.o.platformNote ? `<div style="font-size:12px;margin-top:5px;padding:5px 7px;background:#f8fafc;border-radius:5px;color:var(--text-secondary)">中台备注：${afEsc(x.o.platformNote)}</div>` : ''}
       </div>`;
     }).join('') + '</div>';
+}
+
+// 工程师为空、尚未派工的工单：单独在待跟进区露出，避免漏派
+function afUnassignedOrders() {
+  return afAllOrders().filter(x =>
+    x.kind === 'WN' && (x.o.status === '未派工' || !x.o.engineer) ||
+    x.kind === 'NW' && !x.o.repairEngineer && x.o.status !== '已关单' && x.o.status !== '已终止'
+  );
+}
+
+function renderUnassigned(list) {
+  if (!list.length) return '<div style="color:var(--text-secondary);font-size:13px;padding:6px 2px">✅ 暂无工程师为空的工单</div>';
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">' +
+    list.slice(0, 24).map(x => `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:9px 11px">
+        <div style="font-weight:600;font-size:13px">${afEsc(x.o.id)} · <span style="color:#b45309">未派工</span></div>
+        <div style="font-size:12px;color:var(--text-secondary)">${afEsc(x.o.customerName || x.o.signedCustomer || '—')} · ${afEsc(x.o.barcode || x.o.vehicleInfo || x.o.plateNumber || '—')}</div>
+        <div style="font-size:12px;margin-top:6px;display:flex;gap:6px;align-items:center">
+          <span style="color:var(--text-secondary)">${afEsc(x.o.status || '待处理')}</span>
+          ${AFG.isReadonly(ME.role) ? '' : `<button class="btn btn-sm btn-outline" onclick="${x.kind === 'WN' ? `afOpenAction('WN','${afEsc(x.o.id)}','dispatch')` : `viewNonWarranty('${afEsc(x.o.id)}')`}">${x.kind === 'WN' ? '派单' : '查看'}</button>`}
+        </div>
+      </div>`).join('') + '</div>';
 }
 
 function renderAllRows(list) {
@@ -1098,7 +1288,7 @@ function renderAllRows(list) {
       <td>${afEsc(o.customerName || o.signedCustomer || '-')}</td>
       <td>${afEsc(o.vehicleInfo || o.plateNumber || '-')}</td>
       <td>${status}</td>
-      <td>${afEsc(o.engineer || o.repairEngineer || '-')}</td>
+      <td>${afEsc((o.engineer || o.repairEngineer || '-') + ((o.coEngineers || []).length ? ' + ' + o.coEngineers.join('、') : ''))}</td>
       <td>${afEsc(o.registerDate || o.requestDate || '-')}</td>
       <td class="action-group" onclick="event.stopPropagation()">${actions}</td>
     </tr>`;
@@ -1129,6 +1319,21 @@ function renderAllOrders() {
       </div>
       ${renderAcceptedPending(pending)}
     </div>
+    <div class="card" style="padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:700">📌 未派工（工程师为空） <span style="color:#b45309">${afUnassignedOrders().length}</span></div>
+        <div style="font-size:12px;color:var(--text-secondary)">这些工单尚未指定工程师，避免漏派</div>
+      </div>
+      ${renderUnassigned(afUnassignedOrders())}
+    </div>
+    ${ME.role === 'ADMIN' ? `
+    <div class="card" style="padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:700">🤝 协同申请待审批 <span style="color:#b45309">${afPendingTransfers().length}</span></div>
+        <div style="font-size:12px;color:var(--text-secondary)">批准后原主修保留，新工程师作为协同加入同一工单</div>
+      </div>
+      ${afRenderTransferRequests(afPendingTransfers())}
+    </div>` : ''}
     <div class="pipeline">
       ${['全部', '保内', '保外', '未分类'].map(c => `<div class="pipeline-step" onclick="filterAllCategory('${c}')"><span>${c}</span></div>`).join('')}
     </div>
@@ -1510,15 +1715,15 @@ function openWarrantyForm(id) {
           </div>
           <div class="form-group">
             <label class="form-label">客户名称<span class="required">*</span></label>
-            <select class="form-select" id="f_wn_customerName">${customerOptionsHtml(o?.customerName)}</select>
+            ${customerInputHtml(o?.customerName, 'wnCustomerList')}
           </div>
           <div class="form-group">
             <label class="form-label">联系人</label>
             <input class="form-input" id="f_wn_contact" value="${o?.contact||''}" placeholder="联系人姓名/电话">
           </div>
           <div class="form-group">
-            <label class="form-label">车辆信息<span class="required">*</span></label>
-            <input class="form-input" id="f_wn_vehicleInfo" value="${o?.vehicleInfo||''}" placeholder="车牌号">
+            <label class="form-label">Barcode号（12位）<span class="required">*</span></label>
+            <input class="form-input" id="f_wn_vehicleInfo" value="${afEsc(o?.barcode || o?.vehicleInfo || '')}" placeholder="12位Barcode号" maxlength="12" inputmode="numeric">
           </div>
           <div class="form-group">
             <label class="form-label">维修类型</label>
@@ -1561,86 +1766,11 @@ function openWarrantyForm(id) {
             <label class="form-label">PM/PQM</label>
             <input class="form-input" id="f_wn_pm" value="${o?.pm||''}">
           </div>
-          <div class="form-group">
-            <label class="form-label">是否加急</label>
-            <select class="form-select" id="f_wn_urgent">
-              <option value="0" ${o?.urgent!=='1'?'selected':''}>否</option>
-              <option value="1" ${o?.urgent==='1'?'selected':''}>是</option>
-            </select>
-          </div>
         </div>
       </div>
       <div class="detail-section">
-        <div class="detail-section-title">📦 物料信息</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label">是否申领物料</label>
-            <select class="form-select" id="f_wn_needMaterial">
-              <option value="0" ${o?.needMaterial!=='1'?'selected':''}>否</option>
-              <option value="1" ${o?.needMaterial==='1'?'selected':''}>是</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">申领日期</label>
-            <input class="form-input" type="date" id="f_wn_materialApplyDate" value="${o?.materialApplyDate||''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">领用物料日期</label>
-            <input class="form-input" type="date" id="f_wn_materialReceiveDate" value="${o?.materialReceiveDate||''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">GSS工单号</label>
-            <input class="form-input" id="f_wn_gssOrderNo" value="${o?.gssOrderNo||''}">
-          </div>
-        </div>
-      </div>
-      <div class="detail-section">
-        <div class="detail-section-title">💰 费用信息</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label">报单员</label>
-            <select class="form-select" id="f_wn_reporter">
-              <option value="">-- 请选择 --</option>
-              ${APP.reporters.map(r => `<option value="${r}" ${o?.reporter===r?'selected':''}>${r}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">GSS总费用(元)</label>
-            <input class="form-input" type="number" id="f_wn_gssFee" value="${o?.gssFee||''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">保外成交金额(元)</label>
-            <input class="form-input" type="number" id="f_wn_outWarrantyAmount" value="${o?.outWarrantyAmount||''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">总费用(元)</label>
-            <input class="form-input" type="number" id="f_wn_totalFee" value="${o?.totalFee||''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">订货日期</label>
-            <input class="form-input" type="date" id="f_wn_orderDate" value="${o?.orderDate||''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">订货成本(元)</label>
-            <input class="form-input" type="number" id="f_wn_orderCost" value="${o?.orderCost||''}">
-          </div>
-        </div>
-      </div>
-      <div class="detail-section">
-        <div class="detail-section-title">📝 备注</div>
-        <div class="form-grid">
-          <div class="form-group full">
-            <label class="form-label">中台备注</label>
-            <textarea class="form-textarea" id="f_wn_platformNote">${o?.platformNote||''}</textarea>
-          </div>
-          <div class="form-group full">
-            <label class="form-label">库房备注</label>
-            <textarea class="form-textarea" id="f_wn_warehouseNote">${o?.warehouseNote||''}</textarea>
-          </div>
-          <div class="form-group full">
-            <label class="form-label">旧件备注</label>
-            <textarea class="form-textarea" id="f_wn_oldPartNote">${o?.oldPartNote||''}</textarea>
-          </div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">
+          物料、报单费用与分工备注不在建单时填写：物料在「仓库登记」记录，GSS工单号与报单费用在「结算」步骤填写，中台备注在「派单」时填写，库房/旧件备注在「仓库登记」时填写。
         </div>
       </div>
     </div>
@@ -1653,35 +1783,42 @@ function openWarrantyForm(id) {
 }
 
 function saveWarranty(editId) {
-  const data = {
-    registerDate: document.getElementById('f_wn_registerDate').value,
-    customerName: document.getElementById('f_wn_customerName').value,
-    contact: document.getElementById('f_wn_contact').value,
-    vehicleInfo: document.getElementById('f_wn_vehicleInfo').value,
-    repairType: document.getElementById('f_wn_repairType').value,
-    orderType: document.getElementById('f_wn_orderType').value,
-    faultDesc: document.getElementById('f_wn_faultDesc').value,
-    engineer: document.getElementById('f_wn_engineer').value,
-    externalService: document.getElementById('f_wn_externalService').value,
-    pm: document.getElementById('f_wn_pm').value,
-    urgent: document.getElementById('f_wn_urgent').value,
-    needMaterial: document.getElementById('f_wn_needMaterial').value,
-    materialApplyDate: document.getElementById('f_wn_materialApplyDate').value,
-    materialReceiveDate: document.getElementById('f_wn_materialReceiveDate').value,
-    gssOrderNo: document.getElementById('f_wn_gssOrderNo').value,
-    reporter: document.getElementById('f_wn_reporter').value,
-    gssFee: document.getElementById('f_wn_gssFee').value,
-    outWarrantyAmount: document.getElementById('f_wn_outWarrantyAmount').value,
-    totalFee: document.getElementById('f_wn_totalFee').value,
-    orderDate: document.getElementById('f_wn_orderDate').value,
-    orderCost: document.getElementById('f_wn_orderCost').value,
-    platformNote: document.getElementById('f_wn_platformNote').value,
-    warehouseNote: document.getElementById('f_wn_warehouseNote').value,
-    oldPartNote: document.getElementById('f_wn_oldPartNote').value,
+  const old = editId ? (afFindOrder('WN', editId) || {}) : {};
+  const val = (id, fallback) => {
+    const el = document.getElementById(id);
+    return el ? el.value : (fallback === undefined ? '' : fallback);
   };
+  // 建单表单只保留现场需要填的字段；其余字段保留原值，等对应责任步骤再录入
+  const data = {
+    registerDate: val('f_wn_registerDate', todayStr()),
+    customerName: val('f_wn_customerName'),
+    contact: val('f_wn_contact'),
+    vehicleInfo: val('f_wn_vehicleInfo'),
+    repairType: val('f_wn_repairType', '乘用车'),
+    orderType: val('f_wn_orderType', 'EU5检测'),
+    faultDesc: val('f_wn_faultDesc'),
+    engineer: val('f_wn_engineer'),
+    externalService: val('f_wn_externalService'),
+    pm: val('f_wn_pm'),
+    urgent: old.urgent || '0',
+    needMaterial: old.needMaterial || '0',
+    materialApplyDate: old.materialApplyDate || '',
+    materialReceiveDate: old.materialReceiveDate || '',
+    gssOrderNo: old.gssOrderNo || '',
+    reporter: old.reporter || '',
+    gssFee: old.gssFee || '',
+    outWarrantyAmount: old.outWarrantyAmount || '',
+    totalFee: old.totalFee || '',
+    orderDate: old.orderDate || '',
+    orderCost: old.orderCost || '',
+    platformNote: old.platformNote || '',
+    warehouseNote: old.warehouseNote || '',
+    oldPartNote: old.oldPartNote || ''
+  };
+  if (!editId) data.barcode = data.vehicleInfo;
 
   if(!data.customerName || !data.vehicleInfo || !data.faultDesc) {
-    alert('请填写必填项：客户名称、车辆信息、故障描述');
+    alert('请填写必填项：客户名称、Barcode号、故障描述');
     return;
   }
 
@@ -2033,7 +2170,7 @@ function viewWarranty(id) {
           <div class="detail-field"><div class="detail-field-label">登记日期</div><div class="detail-field-value">${o.registerDate||'-'}</div></div>
           <div class="detail-field"><div class="detail-field-label">客户名称</div><div class="detail-field-value">${o.customerName||'-'}</div></div>
           <div class="detail-field"><div class="detail-field-label">联系人</div><div class="detail-field-value">${o.contact||'-'}</div></div>
-          <div class="detail-field"><div class="detail-field-label">车辆信息</div><div class="detail-field-value">${o.vehicleInfo||'-'}</div></div>
+          <div class="detail-field"><div class="detail-field-label">Barcode号</div><div class="detail-field-value">${o.barcode||o.vehicleInfo||'-'}</div></div>
           <div class="detail-field"><div class="detail-field-label">维修类型</div><div class="detail-field-value">${o.repairType||'-'}</div></div>
           <div class="detail-field"><div class="detail-field-label">工单类型</div><div class="detail-field-value">${o.orderType||'-'}</div></div>
           <div class="detail-field"><div class="detail-field-label">故障描述</div><div class="detail-field-value">${o.faultDesc||'-'}</div></div>
@@ -2042,11 +2179,12 @@ function viewWarranty(id) {
       <div class="detail-section">
         <div class="detail-section-title">👷 工程师与进度</div>
         <div class="detail-grid">
-          <div class="detail-field"><div class="detail-field-label">责任工程师</div><div class="detail-field-value">${o.engineer||'-'}</div></div>
+          <div class="detail-field"><div class="detail-field-label">责任工程师（主修）</div><div class="detail-field-value">${o.engineer||'-'}</div></div>
+          <div class="detail-field"><div class="detail-field-label">协同工程师</div><div class="detail-field-value">${(o.coEngineers || []).length ? o.coEngineers.join('、') : '-'}</div></div>
           <div class="detail-field"><div class="detail-field-label">开工时间</div><div class="detail-field-value">${o.startDate||'-'}</div></div>
           <div class="detail-field"><div class="detail-field-label">完工日期</div><div class="detail-field-value">${o.completeDate||'-'}</div></div>
-          <div class="detail-field"><div class="detail-field-label">工程师备注</div><div class="detail-field-value">${o.engineerNote||'-'}</div></div>
-          <div class="detail-field"><div class="detail-field-label">工程师产值</div><div class="detail-field-value">${o.engineerOutput||'-'}</div></div>
+          <div class="detail-field"><div class="detail-field-label">工程师备注（自检）</div><div class="detail-field-value">${o.engineerNote||'-'}</div></div>
+          <div class="detail-field"><div class="detail-field-label">工程师备注（进度）</div><div class="detail-field-value">${o.engineerProgressNote||'-'}</div></div>
         </div>
       </div>
       <div class="detail-section">
@@ -2202,6 +2340,10 @@ function dispatchWarranty(id) {
             ${APP.engineers.map(e => `<option value="${e}" ${o.engineer===e?'selected':''}>${e}</option>`).join('')}
           </select>
         </div>
+        <div class="form-group full">
+          <label class="form-label">中台备注</label>
+          <textarea class="form-textarea" id="dispatch_platformNote" rows="2" placeholder="中台需要交代给工程师的信息">${afEsc(o.platformNote || '')}</textarea>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -2215,7 +2357,10 @@ function dispatchWarranty(id) {
 function confirmDispatchWarranty(id) {
   const eng = document.getElementById('dispatch_eng').value;
   if(!eng) { alert('请选择工程师'); return; }
-  afCommit('WN', id, 'dispatch', { engineer: eng, note: '派单给 ' + eng });
+  const note = (document.getElementById('dispatch_platformNote') || {}).value || '';
+  const o = APP.warrantyOrders.find(x => x.id === id);
+  if (o) o.platformNote = note;
+  afCommit('WN', id, 'dispatch', { engineer: eng, note: '派单给 ' + eng + (note ? '；中台备注：' + note : '') });
 }
 
 function settleWarranty(id) {
@@ -2230,6 +2375,7 @@ function settleWarranty(id) {
             ${APP.reporters.map(r => `<option value="${r}" ${o.reporter===r?'selected':''}>${r}</option>`).join('')}
           </select>
         </div>
+        <div class="form-group"><label class="form-label">GSS工单号</label><input class="form-input" id="settle_gssOrderNo" value="${afEsc(o.gssOrderNo||'')}"></div>
         <div class="form-group"><label class="form-label">GSS总费用(元)</label><input class="form-input" type="number" id="settle_gssFee" value="${o.gssFee||''}"></div>
         <div class="form-group"><label class="form-label">总费用(元)</label><input class="form-input" type="number" id="settle_totalFee" value="${o.totalFee||''}"></div>
         <div class="form-group"><label class="form-label">保外成交金额(元)</label><input class="form-input" type="number" id="settle_outAmt" value="${o.outWarrantyAmount||''}"></div>
@@ -2246,6 +2392,7 @@ function settleWarranty(id) {
 function confirmSettleWarranty(id) {
   const o = APP.warrantyOrders.find(x => x.id === id);
   o.reporter = document.getElementById('settle_reporter').value;
+  o.gssOrderNo = (document.getElementById('settle_gssOrderNo') || {}).value || o.gssOrderNo || '';
   o.gssFee = document.getElementById('settle_gssFee').value;
   o.totalFee = document.getElementById('settle_totalFee').value;
   o.outWarrantyAmount = document.getElementById('settle_outAmt').value;
@@ -2335,8 +2482,12 @@ function openWarehouseForm() {
           <input class="form-input" type="date" id="wh_oldPartReturn">
         </div>
         <div class="form-group full">
-          <label class="form-label">备注</label>
+          <label class="form-label">库房备注</label>
           <textarea class="form-textarea" id="wh_note"></textarea>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">旧件备注</label>
+          <textarea class="form-textarea" id="wh_oldPartNote"></textarea>
         </div>
       </div>
     </div>
@@ -2377,6 +2528,7 @@ function saveWarehouseLog() {
     } else if(log.type === '旧件') {
       wo.oldPartReceiveDate = log.oldPartReceive;
       wo.oldPartReturnDate = log.oldPartReturn;
+      wo.oldPartNote = (document.getElementById('wh_oldPartNote') || {}).value || wo.oldPartNote || '';
     }
     wo.warehouseNote = log.note;
   }
