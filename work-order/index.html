@@ -982,7 +982,8 @@ function saveEngineerNote(kind, id) {
 function afActionButtons(kind, o) {
   const acts = AFG.actionable(kind, o, ME);
   let extra = '';
-  if (o.status === '在修' && !AFG.isReadonly(ME.role) &&
+  // 工程师接单后即可记录待料/工序进度，不必等到开工；管理员同样可代填。
+  if (['已接单', '在修'].indexOf(o.status) >= 0 && !AFG.isReadonly(ME.role) &&
       ['TECHNICIAN', 'DISPATCHER', 'ADMIN'].indexOf(ME.role) >= 0) {
     extra += `<button class="btn btn-sm btn-outline" onclick="openEngineerNote('${kind}','${afEsc(o.id)}')">工程师备注</button>`;
   }
