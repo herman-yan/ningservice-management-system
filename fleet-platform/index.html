@@ -115,7 +115,11 @@ svg{display:block}
   transition:transform .16s ease,box-shadow .16s ease,border-color .16s}
 .stat:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:#cbdff5}
 .stat .tile{flex:0 0 40%;display:grid;place-items:center;color:#fff;position:relative;overflow:hidden}
-.stat .tile svg{width:30px;height:30px;stroke-width:1.95;position:relative;z-index:1}
+.stat .tile svg{width:30px;height:30px;stroke-width:1.8;position:relative;z-index:1}
+/* 科技感图标：精密几何主体 + 主辅层次（HUD 准星 / 焊接节点），纯色无渐变 */
+.stat .tile svg.ico-tech{stroke-width:1.9}
+.ico-tech .hud{opacity:.38}
+.ico-tech .nd{opacity:.68}
 .stat .txt{flex:1;min-width:0;padding:12px 12px 10px;display:flex;flex-direction:column;
   justify-content:flex-start;overflow:hidden}
 .stat .tt{font-size:12.5px;color:var(--stat-title);font-weight:500;white-space:nowrap;overflow:hidden;
@@ -797,14 +801,14 @@ const DASH_CARDS = [
   {t:'保养工单数量', v:30425, c:'green', ico:'gear', to:'#/tickets?type=保养'},
   {t:'待首次确认保养单', v:231, c:'orange', ico:'gear', to:'#/tickets?type=保养&status=待首次确认'},
   {t:'待二次确认保养单', v:266, c:'orange', ico:'gear', to:'#/tickets?type=保养&status=待二次确认'},
-  {t:'维修工单数量', v:116044, c:'orange', ico:'gear', to:'#/tickets?type=维修'},
-  {t:'待首次确认维修单', v:1765, c:'orange', ico:'gear', to:'#/tickets?type=维修&status=待首次确认'},
-  {t:'待二次确认维修单', v:2781, c:'orange', ico:'gear', to:'#/tickets?type=维修&status=待二次确认'},
-  {t:'行驶证即将到期', c:'orange', ico:'gear', lines:[
+  {t:'维修工单数量', v:116044, c:'orange', ico:'wrench', to:'#/tickets?type=维修'},
+  {t:'待首次确认维修单', v:1765, c:'orange', ico:'wrench', to:'#/tickets?type=维修&status=待首次确认'},
+  {t:'待二次确认维修单', v:2781, c:'orange', ico:'wrench', to:'#/tickets?type=维修&status=待二次确认'},
+  {t:'行驶证即将到期', c:'orange', ico:'calAlert', lines:[
       {x:'车辆运输证即将到期',cls:''},{x:'车头:3074',cls:'g'},{x:'挂厢:146',cls:'g'}], to:'#/vehicles?expire=lic'},
-  {t:'交强险即将过期', v:2826, c:'orange', ico:'gear', to:'#/vehicles?expire=jq'},
-  {t:'商业险即将过期', v:2808, c:'orange', ico:'gear', to:'#/vehicles?expire=sy'},
-  {t:'驾驶证即将到期', v:1723, c:'orange', ico:'gear', to:'#/drivers?expire=lic'}
+  {t:'交强险即将过期', v:2826, c:'orange', ico:'calAlert', to:'#/vehicles?expire=jq'},
+  {t:'商业险即将过期', v:2808, c:'orange', ico:'calAlert', to:'#/vehicles?expire=sy'},
+  {t:'驾驶证即将到期', v:1723, c:'orange', ico:'calAlert', to:'#/drivers?expire=lic'}
 ];
 
 /* ---------- 运营管理作业指导书 ---------- */
@@ -933,6 +937,59 @@ const ICO_RAW = {
   clock:'<circle cx="12" cy="12" r="8.6"/><path d="M12 7v5.3l3.4 2"/>',
   shield:'<path d="M12 3 5 5.6v5.6c0 4.4 3 7.6 7 9.2 4-1.6 7-4.8 7-9.2V5.6z"/><path d="M9 12l2.2 2.2L15.4 10"/>'
 };
+
+/* ============================================================
+   科技感图标（HUD 数据终端 / PCB 电路风）
+   仅用于控制台统计卡的大图标（30px 有空间承载细节）。
+   手法：斜切几何主体 + 端点焊点(.nd) + 数据刻线(.ln) + 四角定位准星(.hud)
+   全部为纯色描边 + 透明度层次，不含任何渐变，尺寸不放大。
+   ============================================================ */
+const HUD_FRAME =
+  '<g class="hud" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="square" stroke-linejoin="miter">'+
+    '<path d="M2.2 5.6V2.4h3.2M21.8 5.6V2.4h-3.2M2.2 18.4v3.2h3.2M21.8 18.4v3.2h-3.2"/>'+
+  '</g>';
+
+const ICO_TECH = {
+  tag: '<path d="M3.5 12.4 12 3.9h7.7v7.7L11.3 20.1z"/>'+
+       '<circle cx="16.3" cy="7.9" r="1.25"/>',
+  truck: '<path d="M2.6 7.1h10.3v8.3H2.6z"/>'+
+         '<path d="M12.9 9.9h3.9l3.5 3.1v2.4h-7.4z"/>'+
+         '<circle cx="6.2" cy="17.8" r="1.55"/><circle cx="16.8" cy="17.8" r="1.55"/>'+
+         '<circle class="nd" cx="6.2" cy="17.8" r=".6" fill="currentColor" stroke="none"/>'+
+         '<circle class="nd" cx="16.8" cy="17.8" r=".6" fill="currentColor" stroke="none"/>',
+  trailer: '<path d="M2.6 6.7h11.7v8.3H2.6z"/>'+
+           '<path d="M14.3 9.3h3.2l3.5 3v2.7h-6.7z"/>'+
+           '<path d="M3.9 4.5h8.3"/>'+
+           '<circle cx="6" cy="17.6" r="1.5"/><circle cx="16.4" cy="17.6" r="1.5"/>'+
+           '<circle class="nd" cx="6" cy="17.6" r=".58" fill="currentColor" stroke="none"/>'+
+           '<circle class="nd" cx="16.4" cy="17.6" r=".58" fill="currentColor" stroke="none"/>',
+  users: '<circle cx="9" cy="8.1" r="3.1"/>'+
+         '<path d="M3 19.1c.4-3.3 2.9-5.2 6-5.2s5.6 1.9 6 5.2"/>'+
+         '<circle cx="17.6" cy="9" r="2.3"/>'+
+         '<path d="M16.2 13.7c2.6.2 4.5 1.9 4.9 4.5"/>',
+  flag: '<path d="M5.8 20.6V3.4"/>'+
+        '<path d="M5.8 4.6 14.4 3 19 5.3 14.4 7.6 5.8 6z"/>'+
+        '<circle class="nd" cx="5.8" cy="3.4" r=".92" fill="currentColor" stroke="none"/>',
+  /* 六角螺母：极简工业几何，30px 下轮廓清晰，贴合保养语义 */
+  gear: '<path d="M12 3.15 19.6 7.6v8.8L12 20.85 4.4 16.4V7.6z"/>'+
+        '<circle cx="12" cy="12" r="3.35"/>',
+  /* 扳手：维修语义，单一路径保证 30px 可辨 */
+  wrench: '<path d="M15.5 3.5a5 5 0 0 0-4.4 7.1L4 17.7 6.3 20l7.1-7.1A5 5 0 0 0 20.5 8l-3 3-2.5-2.5 3-3a5 5 0 0 0-2.5-2z"/>',
+  /* 日历 + 到期标记：证件/保险到期语义 */
+  calAlert: '<path d="M4 5.8h16v14H4z"/>'+
+            '<path d="M4 9.6h16"/>'+
+            '<path d="M8 3.4v3.4M16 3.4v3.4"/>'+
+            '<circle class="nd" cx="12" cy="15.3" r="1.45" fill="currentColor" stroke="none"/>'
+};
+
+function icoTech(name, size){
+  const raw = ICO_TECH[name] || ICO_RAW[name] || ICO_RAW.file;
+  const s = size || 30;
+  return '<svg class="ico-tech" width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" '+
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="square" stroke-linejoin="miter" '+
+    'aria-hidden="true">'+HUD_FRAME+raw+'</svg>';
+}
+
 function ico(name, size, cls){
   const raw = ICO_RAW[name] || ICO_RAW.file;
   const s = size || 16;
@@ -1203,7 +1260,7 @@ PAGES.dashboard = {
           c.lines.map(l=>'<div class="ml '+(l.cls||'')+'" title="'+esc(l.x)+'">'+esc(l.x)+'</div>').join('');
       }
       return '<div class="stat" data-go="'+c.to+'" title="点击查看明细">'+
-        '<div class="tile c-'+c.c+'">'+ico(c.ico,42)+'</div>'+
+        '<div class="tile c-'+c.c+'">'+icoTech(c.ico,30)+'</div>'+
         '<div class="txt">'+inner+'</div></div>';
     }).join('');
     return pageHead('控制台','系统信息预览',this.headRight()) +
