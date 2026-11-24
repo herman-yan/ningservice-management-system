@@ -264,9 +264,9 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         <h2>3 · 简历数据源</h2>
         <div class="auto-in">
           <h3>⚡ 省掉「逐个点开、下载」：一键抓当前简历</h3>
-          <p>把下面的按钮<b>拖到浏览器书签栏</b>（显示书签栏：Ctrl+Shift+B）。之后在 BOSS 里点开任意候选人的在线简历页，点一下书签栏里的「抓简历」，当前页面文字就会自动送到本页简历库 —— <b>不用下载、不用复制粘贴、不用切回来</b>。每位 HR 在自己的浏览器拖一次即可，不依赖任何一台电脑、不需要登录任何工具。</p>
+          <p>把下面的按钮<b>拖到浏览器书签栏</b>（显示书签栏：Ctrl+Shift+B）。之后在 BOSS 里<b>点开候选人的简历，等正文 / PDF 预览显示出来</b>，再点一下书签栏里的「抓简历」，简历内容就会自动送到本页简历库 —— <b>不用下载、不用复制粘贴、不用切回来</b>。每位 HR 在自己的浏览器拖一次即可，不依赖任何一台电脑、不需要登录任何工具。</p>
           <p><a id="bmLink" class="bm" draggable="true" href="#" onclick="return false">📌 拖我到书签栏（抓简历）</a></p>
-          <p class="hint" style="margin-top:7px">书签能抓当前网页文字，也会自动探测页面里的附件 PDF 并解析入库。请在<b>候选人列表 / 简历预览页</b>点书签（不要在 PDF 单独打开的标签页里点）。图片型 / 扫描件 PDF 没有文字层，抓不到，请用下面②。</p>
+          <p class="hint" style="margin-top:7px"><b>正确用法：一定要在「看得到简历文字」的那个页面点书签</b>（先点开候选人简历 → 正文或 PDF 预览出来 → 再点书签）。书签读的是浏览器已渲染出的文字，PDF 多页也没问题（已按版面顺序还原）。若 PDF 是用浏览器独立阅读器打开、文字一个字都选不中，那就是图片型扫描件，请用下面②批量下载。抓完会提示「已入库 N 份」，右侧立即重新打分。</p>
           <div class="inbox-row">
             <button id="btnWatchDir" class="btn bm2">📂 监视「下载」文件夹</button>
             <span id="watchStatus" class="inbox-status">未开启</span>
@@ -2475,7 +2475,11 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
     });
     await vaultReady;
 
-    /* ===== 省掉「逐个点开、下载」：书签一键抓当前页（文字 + PDF） ===== */
+    /* ===== 省掉「逐个点开、下载」：书签一键抓当前页（文字 + PDF） =====
+       核心修复（v2）：BOSS 附件简历用带 token 的链接在 pdf.js / 内置 viewer 里渲染，
+       直接 fetch 链接必因跨域/鉴权失败。改为优先抓「浏览器已经渲染出来的文字层」
+       （pdf.js 的 .textLayer span 带坐标，按坐标排序即可还原正文），这才是 Grok 能读到的东西。
+       抓取全部在「当前标签页」内完成，不依赖任何后台、不需要登录。 */
     (function setupBookmarklet() {
       var a = $('bmLink'); if (!a) return;
       var site = location.href.split('#')[0];
@@ -2483,18 +2487,26 @@ footer{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center;lin
         "(async function(){",
         "var SITE=" + JSON.stringify(site) + ";",
         "var pdfs=[],texts=[];",
-        "try{var fs=document.querySelectorAll('iframe,frame');for(var i=0;i<fs.length;i++){try{var d=fs[i].contentDocument;if(d&&d.body){var x=(d.body.innerText||'').trim();if(x.length>60)texts.push(x)}}catch(e){}}}catch(e){}",
-        "var urls=[];function add(u){if(!u)return;try{u=decodeURIComponent(u)}catch(e){}if(u&&urls.indexOf(u)<0)urls.push(u)}",
-        "try{var es=document.querySelectorAll('iframe,embed,object');for(var i=0;i<es.length;i++){add(es[i].src||es[i].data||'')}}catch(e){}",
-        "try{var as=document.querySelectorAll('a[href]');for(var i=0;i<as.length;i++){var u=as[i].href||'';if(/\\.pdf|blob:|resume|attach/i.test(u))add(u)}}catch(e){}",
+        "function clean(s){return String(s||'').replace(/\\u00a0/g,' ').replace(/[ \\t]+/g,' ').trim()}",
+        "function push(s){s=clean(s);if(s.length>=20&&texts.indexOf(s)<0)texts.push(s)}",
+        /* 1) 抓 pdf.js 渲染文字层：span 带 style.top/left 或 transform，按坐标排序还原正文 */
+        "function grabTextLayer(doc){var ls=doc.querySelectorAll('.textLayer,.text-layer,[class*=textLayer]');for(var li=0;li<ls.length;li++){var sp=ls[li].querySelectorAll('span');if(!sp.length)continue;var rows=[];for(var si=0;si<sp.length;si++){var s=sp[si],t=clean(s.textContent);if(!t)continue;var y=parseFloat(s.style.top)||0,x=parseFloat(s.style.left)||0;var m=/translate\\(([-\\d.]+)px,\\s*([-\\d.]+)px\\)/.exec(s.style.transform||'');if(m){x+=parseFloat(m[1])||0;y+=parseFloat(m[2])||0}rows.push({x:x,y:y,t:t})}rows.sort(function(p,q){var dy=p.y-q.y;return Math.abs(dy)>2?dy:p.x-q.x});var out='',ly=null;for(var ri=0;ri<rows.length;ri++){if(ly!==null&&Math.abs(rows[ri].y-ly)>2)out+='\\n';else if(out)out+=' ';out+=rows[ri].t;ly=rows[ri].y}push(out)}}",
+        /* 2) 递归可访问的 iframe（同源可读；跨域会抛错，跳过），每个都试文字层 + body */
+        "function walk(doc,depth){if(!doc||depth>3)return;try{grabTextLayer(doc)}catch(e){}try{var b=doc.body&&doc.body.innerText;if(b)push(b)}catch(e){}try{var fs=doc.querySelectorAll('iframe,frame');for(var i=0;i<fs.length;i++){try{walk(fs[i].contentDocument,depth+1)}catch(e){}}}catch(e){}}",
+        "walk(document,0);",
+        /* 3) 页面选区 / body 兜底（很多在线简历直接是普通 DOM 文本） */
+        "var sel='';try{sel=(window.getSelection()||'').toString()}catch(e){}push(sel);",
+        "if(!texts.length){try{push(document.body.innerText)}catch(e){}}",
+        /* 4) PDF 字节兜底：仅收集真实 PDF 资源，失败静默跳过（文字层已抓到则不折腾） */
+        "if(!texts.length){var urls=[];function add(u){if(!u)return;try{u=decodeURIComponent(u)}catch(e){}if(urls.indexOf(u)<0)urls.push(u)}",
+        "try{var es=document.querySelectorAll('iframe,embed,object,a[href]');for(var i=0;i<es.length;i++){add(es[i].src||es[i].data||es[i].href||'')}}catch(e){}",
         "try{var pe=performance.getEntriesByType('resource');for(var i=0;i<pe.length;i++){var u=pe[i].name||'';if(/\\.pdf|pdf|resume|attach|blob:/i.test(u))add(u)}}catch(e){}",
-        "for(var i=0;i<urls.length&&i<60&&pdfs.length<20;i++){try{var r=await fetch(urls[i],{credentials:'include'});var ab=await r.arrayBuffer();if(ab.byteLength>512){var h=new Uint8Array(ab.slice(0,5));if(h[0]===37&&h[1]===80&&h[2]===68&&h[3]===70){var nm=(urls[i].split('/').pop()||'附件简历.pdf').split('?')[0];pdfs.push({name:nm,buf:ab})}}}catch(e){}}",
-        "var t='';try{t=(window.getSelection()||'').toString().trim()}catch(e){}if(!t){try{t=(document.body.innerText||'').trim()}catch(e){}}if(t&&t.length>30)texts.push(t);",
-        "if(!pdfs.length&&!texts.length){alert('未读取到简历：请先把简历正文或 PDF 预览打开，再点书签（在列表页点，不要在 PDF 单独标签页点）');return}",
+        "for(var i=0;i<urls.length&&i<40&&pdfs.length<15;i++){try{var r=await fetch(urls[i],{credentials:'include'});var ab=await r.arrayBuffer();if(ab.byteLength>512){var h=new Uint8Array(ab.slice(0,5));if(h[0]===37&&h[1]===80&&h[2]===68&&h[3]===70){var nm=(urls[i].split('/').pop()||'附件简历.pdf').split('?')[0];pdfs.push({name:nm,buf:ab})}}}catch(e){}}}",
+        "if(!pdfs.length&&!texts.length){alert('没读到简历文字。请在【能看到简历正文或 PDF 预览的那个标签页】点书签：先点开候选人简历，等文字显示出来，再点书签。若 PDF 是浏览器独立阅读器且文字选不中，请改用②批量下载。');return}",
         "var w=window.open(SITE+'#grab=1','rsGrab');if(!w){alert('请允许弹出窗口后重试');return}",
         "var origin=new URL(SITE).origin,sent=false;function send(){if(sent)return;sent=true;try{w.postMessage({type:'rs-resume',pdfs:pdfs,texts:texts},origin)}catch(e){}}",
         "window.addEventListener('message',function(e){if(e.data==='rs-ready'&&e.source===w){send()}});",
-        "var n=0;var iv=setInterval(function(){try{w.postMessage('rs-ping',origin)}catch(e){}if(++n>24)clearInterval(iv)},250);",
+        "var n=0;var iv=setInterval(function(){try{w.postMessage('rs-ping',origin)}catch(e){}var d=w.document;if(d&&d.getElementById&&d.getElementById('quickMsg')&&d.getElementById('quickMsg').textContent.indexOf('入库')>=0){clearInterval(iv)}if(++n>24)clearInterval(iv)},250);",
         "})()"
       ].join('\n');
       a.setAttribute('href', 'javascript:' + code);
